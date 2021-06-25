@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+<!-- Add additional CSS in static file -->
+{% load static %}
+<link rel="stylesheet" href="{% static 'catalog/css/style.css' %}">
+
+{% load static %}
+<img src="{% static 'catalog/images/logo2.png' %}" alt="logo" style="width:555px;height:540px;">
+
+{% block content %}
+    <div class="main-heading">
+        <h1>Product Review Credibility Analysis</h1>
+    </div>
+
+    <div class="dyn-list">
+        <h2>Dynamic content</h2>
+        <p>The library has the following record counts:</p>
+        <ul>
+            <li><strong>Number of Users:</strong> {{ num_users }}</li>
+            <li><strong>Number of Products:</strong> {{ num_products }}</li>
+            <li><strong>Number of Reviews:</strong> {{ num_reviews }}</li>
+        </ul>
+    </div>
+{% endblock %}

@@ -1,0 +1,20 @@
+.sidebar-nav {
+    margin-top: 20px;
+    padding: 0;
+    list-style: none;
+}
+
+.main-heading {
+    text-align: center;
+    margin-top: 20px;
+    padding: 0;
+}
+
+.logo {
+    display: inline-block;
+    vertical-align: middle;
+    font-size: 30px;
+    margin-right: 75px;
+    color: #FFF;
+}
+
