@@ -93,7 +93,7 @@ class Similarity():
             biGramCrcs = self.find_bigram_crcs(reviewText) 
 
             self.reviewCount += 1
-            if self.reviewCount % 10000 == 0:
+            if self.reviewCount % 1000 == 0:
                 print("\n" + str(datetime.datetime.now()) + " " + str(self.reviewCount))
 
             signature = []

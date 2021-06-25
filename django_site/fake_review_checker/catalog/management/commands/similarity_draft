@@ -1,0 +1,213 @@
+# Name: Zach Shim & Anusha Prabakaran
+# Project Capstone: Product Review Credibility Analysis
+# UW
+# Detection of duplicate reviews - Inverted Index part for similarity
+
+# Standard library imports
+import re
+import random
+import time
+import binascii
+import datetime
+import csv
+import sys
+import os
+import math
+import operator
+import sqlite3
+
+# Django Imports
+from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
+from django.utils.crypto import get_random_string
+from django.db.models import Max, Min, Avg
+
+# Relative Imports
+from ...models import User, Product, Review
+from .detection_algorithms import DetectionAlgorithms
+
+
+# Used by django admin on the command line: python manage.py similarity
+class Command(BaseCommand):
+    help = 'Get product similarity scores'
+    
+    # args holds number of args, kwargs is dict of args
+    def handle(self, *args, **kwargs):        
+        similarity = Similarity()
+        similarity.InvertedIndex()
+        matchingKeys = similarity.CompareAllHashes()
+
+    '''
+    # adds an optional argument to **kwards in the handle function
+    def add_arguments(self, parser):
+        parser.add_argument('productASIN', type=str, nargs='?', default = "", help='Indicates the asin of the product we are currently analyzing')
+
+    # args holds number of args, kwargs is dict of args
+    def handle(self, *args, **kwargs):
+        asin = kwargs['productASIN']
+        
+        similarity = Similarity()
+        similarity.InvertedIndex()
+        matchingKeys = similarity.CompareHash(asin)
+    
+        if asin:
+            matchingKeys = similarity.CompareHash(asin)
+            similarity.Detect(asin, matchingKeys)
+        else:
+            similarity.CompareAllHashes()
+    
+        
+        similarity = Similarity()
+        similarity.InvertedIndex()
+        similarity.CompareHashes()
+    '''
+
+
+
+# Calculates the similarity score for a given Product's Reviews
+class Similarity():
+
+    def __init__(self):
+        # For each of the 'numHashes' hash functions, generate a different coefficient 'a' and 'b'.
+        self.numHashes = 105
+        self.reviewCount = 1
+        self.duplicateTimesInt = []
+        self.duplicateScore = []
+
+        # inverted index
+        self.dictList = [dict() for x in range(self.numHashes)]
+
+        # compare hashes
+        self.threshold = 0.3
+
+        #super(Similarity, self).__init__()
+
+
+
+    def InvertedIndex(self):
+        for review in Review.objects.all():
+            print(review.reviewID)
+            bigram_hash = review.minHash.split(",")
+            for i in range(0, self.numHashes):
+                key = int(bigram_hash[i])
+                self.dictList[i].setdefault(key, [])
+                self.dictList[i][key].append(self.reviewCount)         # all reviews that share this key(bigram) are appended to the list
+            self.reviewCount += 1
+            if self.reviewCount % 10000 == 0:
+                print("\nLoading " + str(datetime.datetime.now()) + " " + str(self.reviewCount))
+                if self.reviewCount > 10000 * 1000:
+                    break
+
+
+
+    def CompareAllHashes(self):
+        review_num = 1
+        hash_file = open('output.txt', 'w')
+        for review in Review.objects.all():
+            if review_num % 500 == 0:
+                print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num))
+
+            # For each review, find the number of keys that match with other reviews' bigrams in the current table
+            matchingKeys = dict()
+            signature = review.minHash.split(",")
+            for j in range(0, self.numHashes):
+
+                # for each review that has this bigram hash, add 1 to their matching key index
+                value = self.dictList[j][int(signature[j])]
+                for v in value:
+                    matchingKeys[v] = matchingKeys.get(v, 0) + 1
+
+                # output checks
+                if len(value) > 10000:
+                    print("Hash " + str(j) + " has " + str(len(value)) + " matches for product " + str(review_num))
+                    continue
+
+            #print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num) + " has " + str(len(matchingKeys)) + "product matches")
+
+            sortedMatchKeys = sorted(matchingKeys.items(), key=operator.itemgetter(1), reverse=True)
+            for x in sortedMatchKeys:
+                #print ("Max hash matches for " + str(review_num) + " is " + str(x[1]))
+                estJ = (x[1] / self.numHashes)
+                if x[0] == review_num:
+                    continue
+                if estJ > self.threshold:
+                    r = Review.objects.filter(reviewID=review_num).values('reviewID', 'asin', 'unixReviewTime', 'overall')[0]
+                    dr = Review.objects.filter(reviewID=x[0]).values('reviewID', 'asin', 'unixReviewTime', 'overall')[0]
+                    out1 = str(r) + "," + str(dr) + "," + str(estJ)
+                    hash_file.write("%s\n" %(out1))
+
+                    # push output data to a buffer
+                    rID = review.reviewID
+                    self.duplicateTimesInt.extend([Review.objects.filter(reviewID=rID).values('unixReviewTime')[0]["unixReviewTime"], Review.objects.filter(reviewID=x[0]).values('unixReviewTime')[0]["unixReviewTime"]])
+                    self.duplicateScore.extend([Review.objects.filter(reviewID=rID).values('overall')[0]["overall"], Review.objects.filter(reviewID=x[0]).values('overall')[0]["overall"]])
+                    dup_review = Review.objects.filter(reviewID=x[0]).values('asin')
+                    # change to total number of duplicate reviews / number of reviews for each product
+                    product = Product.objects.filter(asin=dup_review[0]['asin']).update(duplicateRatio=estJ)
+                else:
+                    break
+            review_num += 1
+        
+
+
+    def CompareHash(self, productASIN):
+        for review in range(1, Review.objects.filter(asin=productASIN).count()):
+            minHash = Review.objects.filter(asin=productASIN).values("minHash")[0]["minHash"]
+            signature = minHash.split(",")
+            matchingKeys = dict()
+            # compares current review's bigrams to all other reviews, and counts which reviews have bigrams in common 
+            for j in range(0, self.numHashes):
+                value = self.dictList[j][int(signature[j])]
+                for v in value:
+                    # for all reviews that have a matching bigram add 1 to their 'matchingKeys' index (indexed by review number)
+                    matchingKeys[v] = matchingKeys.get(v, 0) + 1
+
+            # sort all matching reviews in descending order ()
+            sortedMatchKeys = sorted(matchingKeys.items(), key=operator.itemgetter(1), reverse=True)
+            for x in sortedMatchKeys:
+                # push output data to a buffer if esimation is larger than required threshold
+                estJ = (x[1] / self.numHashes)
+                if x[0] == review_num:
+                    continue
+                if estJ > self.threshold:
+                    dup_review = Review.objects.filter(reviewID=x[0]).values('asin')
+                    self.duplicateTimesInt.extend([Review.objects.filter(reviewID=review).values('unixReviewTime')[0]["unixReviewTime"], Review.objects.filter(reviewID=x[0]).values('unixReviewTime')[0]["unixReviewTime"]])
+                    self.duplicateScore.extend([Review.objects.filter(reviewID=review).values('overall')[0]["overall"], Review.objects.filter(reviewID=x[0]).values('overall')[0]["overall"]])
+                    product = Product.objects.filter(asin=dup_review[0]['asin']).update(duplicateRatio=estJ)
+                else:
+                    break
+        print("duplicateTimeInt: " + str(self.duplicateTimesInt))
+        print("duplicateScore: " + str(self.duplicateScore))
+        return matchingKeys
+
+
+    def Detect(self, productASIN, matchingKeys):
+        '''
+        reviews = Review.objects.filter(asin=productASIN)
+        for review in reviews:
+            bigram_hash = review.minHash.split(",")
+            for i in range(0, self.numHashes):
+                key = int(bigram_hash[i])
+                if self.dictList[i][key]
+                self.dictList[i][key]
+        mostRecentDate = Review.objects.filter(asin=productASIN).aggregate(Min('unixReviewTime'))
+        farthestDate = Review.objects.filter(asin=productASIN).aggregate(Max('unixReviewTime'))
+        reviewRange = datetime.datetime.fromtimestamp(farthestDate['unixReviewTime__max']) - datetime.datetime.fromtimestamp(mostRecentDate['unixReviewTime__min'])
+        
+        
+        # get posting date range (earliest post - most recent post)
+        mostRecentDate = Review.objects.filter(asin=productASIN).aggregate(Min('unixReviewTime'))
+        farthestDate = Review.objects.filter(asin=productASIN).aggregate(Max('unixReviewTime'))
+        reviewRange = datetime.datetime.fromtimestamp(farthestDate['unixReviewTime__max']) - datetime.datetime.fromtimestamp(mostRecentDate['unixReviewTime__min'])
+        
+        # save review range
+        self.reviewDayRange = reviewRange.days
+        self.bucketCount = math.ceil(reviewRange.days / 30)
+        print("It has reviews ranging " + str(self.reviewDayRange) + " days. Bucket count " + str(self.bucketCount))
+
+        # Calculate sets of review anomaly data for histogram bins
+        reviews = Review.objects.filter(asin=productASIN)
+        reviewTimes = [datetime.datetime.fromtimestamp(review['unixReviewTime']).strftime("%m/%d/%Y") for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
+        reviewTimesInt = [review['unixReviewTime'] for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
+        reviewScores = [review['overall'] for review in reviews.values('overall').order_by('overall')]
+        self.reviewsInfo = {"reviewTimesInt": reviewTimesInt, "reviewScores": reviewScores}
+        '''

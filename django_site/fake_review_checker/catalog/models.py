@@ -75,11 +75,12 @@ class Review(models.Model):
     asin = models.ForeignKey(Product, on_delete = models.CASCADE, db_column = "asin")
 
     # attributes
-    reviewID = models.TextField(primary_key=True)
+    reviewID = models.IntegerField(default=0)
     reviewText = models.TextField()
     overall = models.IntegerField(choices = ((1, 1), (2, 2), (3, 3), (4, 4), (5, 5)))
     unixReviewTime = models.IntegerField()
     minHash = models.TextField(default="")
+    duplicate = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
 
     # Metadata
     class Meta:
