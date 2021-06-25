@@ -81,6 +81,7 @@ class Review(models.Model):
     unixReviewTime = models.IntegerField()
     minHash = models.TextField(default="")
     duplicate = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
+    incentivized = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
 
     # Metadata
     class Meta:

@@ -5,6 +5,7 @@ import pandas as pd
 import webbrowser
 
 import numpy as np
+import matplotlib.pyplot as plt, mpld3
 import matplotlib
 matplotlib.use("TkAgg")
 import scipy.stats as stats
@@ -40,9 +41,18 @@ class Command(BaseCommand):
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):
         asin = kwargs['productASIN']
-        r_anomaly = Anomaly(asin)
+        r_anomaly = Anomaly()
         r_anomaly.detect(asin)        
 
+        fig, ax1, ax2 = plt.subplots(ncols=2, figsize=(11, 7))
+        axes = (ax1, ax2)
+        fig.subplots_adjust(wspace=0.4)
+
+        r_anomaly.plot({"figure": fig, "axis": axes[0]}, asin)
+        fig.show()
+
+        r_anomaly.plot({"figure": fig, "axis": axes[1]}, asin)
+        fig.show()
 
 
 '''
@@ -53,45 +63,43 @@ class Command(BaseCommand):
 '''
 class Anomaly(DetectionAlgorithms):
 
-    def __init__(self, productASIN):
+    def __init__(self):
         self.reviewDayRange = 0
         self.bucketCount = 0
-        self.reviewsInfo = {}
 
-        self.bins = []
+        self.series = []
         self.metricSeries = pd.DataFrame()
 
         self.ratingValueAnomalies = defaultdict(dict)
         self.ratingCountAnomalies = defaultdict(dict)
 
         # invoking the constructor of the parent class  
-        super(Anomaly, self).__init__(productASIN)  
+        #super(Incentivized, self).__init__()  
 
 
     # returns reviews in bins of 30-day time series
     def detect(self, productASIN):
-        # query sets of review data for histogram bins
-        reviews = Review.objects.filter(asin=productASIN)
-        reviewTimes = [datetime.datetime.fromtimestamp(review['unixReviewTime']).strftime("%m/%d/%Y") for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
-        reviewTimesInt = [review['unixReviewTime'] for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
-        reviewScores = [review['overall'] for review in reviews.values('overall').order_by('overall')]
-        self.reviewsInfo = {"reviewTimesInt": reviewTimesInt, "reviewScores": reviewScores}
+        self.getBins(productASIN)
+        self.fakeReviewInfo = self.getInfo(productASIN)   
 
-        print(reviewTimesInt)
-        # function computes the mean binned statistical value for the given data (similar to histogram function)
-        averageRating, bin_edges, binnumber = stats.binned_statistic(reviewTimesInt, reviewScores, statistic='mean', bins=self.bins)
-        averageRating = averageRating[np.isfinite(averageRating)]
-        print(averageRating)
+        reviews = Review.objects.filter(asin=productASIN)
+        unixReviewTimes = self.fakeReviewInfo["unixReviewTimes"]
+        scores = self.fakeReviewInfo["scores"]
 
         # function computes the count of the given data (similar to histogram function)
-        reviewsCount, bin_edges1, binnumber1 = stats.binned_statistic(reviewTimesInt, reviewScores, statistic='count', bins=self.bins)
+        reviewsCount, bin_edges1, binnumber1 = stats.binned_statistic(unixReviewTimes, scores, statistic='count', bins=self.bins)
         reviewsCount = reviewsCount[np.isfinite(reviewsCount)]
-        print(reviewsCount)
+        #print(reviewsCount)
+
+        # function computes the mean binned statistical value for the given data (similar to histogram function)
+        averageRating, bin_edges, binnumber = stats.binned_statistic(self.fakeReviewInfo["unixReviewTimes"], self.fakeReviewInfo["scores"], statistic='mean', bins=self.bins)
+        averageRating = averageRating[np.isfinite(averageRating)]
+        #print(averageRating)
 
         binsTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in self.bins]
         self.compressBins(reviewsCount, binsTimestamps)
         reviewsCount = reviewsCount[reviewsCount != 0]
-        print('binTimestamps: ' + str(len(binsTimestamps)))
+        #print('binTimestamps: ' + str(len(binsTimestamps)))
 
         # make a time series data frame and calculate anomalies in rating sitrbutions
         averageRatingValues = {"timestamp": binsTimestamps, "value": averageRating}
@@ -106,33 +114,72 @@ class Anomaly(DetectionAlgorithms):
         Product.objects.filter(asin=productASIN).update(reviewAnomalyRate=anomalyScore)
 
         self.series = {"averageRatingSeries": averageRatingSeries, "reviewCountsSeries": reviewCountsSeries}
-        
-
-
-    def compressBins(self, reviewsCount, binsTimestamps):
-        # if number of initial bins exceeds review count and average rating bins, minimize bins length until it is equal in size of review count and average rating
-        i = j = 0
-        n = len(reviewsCount)
-        while i < n:
-            if reviewsCount[i] == 0:
-                del binsTimestamps[j]
-                i = i + 1
-            else:
-                j = j + 1
-                i = i + 1
-        del binsTimestamps[-1]
 
 
 
-    def calculate(self, series, total):
+    def plot(self, subplot, productASIN):
+        # Get unixReviewTimes and scores of all fake reviews
+        info = self.getInfo(productASIN)
+        unixReviewTimes = info["unixReviewTimes"]
+        scores = info["scores"]
+
+        # error checking for empty graph
+        if (len(unixReviewTimes) == 0 or len(scores) == 0):
+            subplot["figure"].delaxes(subplot["axis"])
+            return
+
+        series = []
+        self.bins = self.getBins(productASIN)
+        self.fakeReviewInfo = info
+        series.append(self.plot_review_anomalies(subplot, productASIN))
+        series.append(self.plot_rating_anomalies(subplot, productASIN))
+        return series
+
+
+
+    def plot_review_anomalies(self, subplot, productASIN):
+        # Calculate an even number of bins based on range of unixReviewTimes x months        
+        self.method = 'mean'
+        self.graphInfo = {"title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"}
+        return self.plotAxis(self.bins, subplot, productASIN)
+
+
+
+    def plot_rating_anomalies(self, subplot, productASIN):
+        # Calculate an even number of bins based on range of unixReviewTimes x months 
+        self.method = 'count'
+        self.graphInfo = {"title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        return self.plotAxis(self.bins, subplot, productASIN)
+
+
+
+    def getInfo(self, productASIN):
+        # query sets of review data for histogram bins
+        reviews = Review.objects.filter(asin=productASIN)
+        reviewTimes = [datetime.datetime.fromtimestamp(review['unixReviewTime']).strftime("%m/%d/%Y") for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
+        reviewTimesInt = [review['unixReviewTime'] for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
+        reviewScores = [review['overall'] for review in reviews.values('overall').order_by('overall')]
+        return {"reviewTimesInt": reviewTimesInt, "reviewScores": reviewScores}
+
+
+
+
+    def calculate(self, productASIN):
+        anomalyValues = {"reviewValueAnomalies": 0, "ratingValueAnamolies": 0}
+
         # calculate anomalies in review value distribution
         try:
-            self.ratingValueAnomalies = detect_ts(series, max_anoms=0.02, direction='both')
+            anomalyValues['reviewValueAnomalies'] = detect_ts(self.series["averageRatingSeries"], max_anoms=0.02, direction='both')
         except:
             self.ratingValueAnomalies['anoms']['anoms'] = []
 
-        anomalies = len(self.ratingValueAnomalies['anoms'].anoms)
-        return round((anomalies / total) * 100, 2) 
+        # calculate anomalies in rating value distribution
+        try:
+            anomalyValues['reviewValueAnomalies'] = detect_ts(self.series["reviewCountsSeries"], max_anoms=0.02, direction='both')
+        except:
+            self.ratingValueAnomalies['anoms']['anoms'] = []
+
+        return anomalyValues
 
 
 
@@ -161,17 +208,3 @@ class Anomaly(DetectionAlgorithms):
         self.bins = np.linspace(mostRecentDate['unixReviewTime__min'], farthestDate['unixReviewTime__max'], bucketCount)
 
 
-
-    def getReviewInfo(self):
-        self.reviewsInfo
-
-
-    '''
-    def getDateRange(self):
-        return self.reviewDayRange
-
-
-
-    def getBucketCount(self):
-        return self.bucketCount
-    '''

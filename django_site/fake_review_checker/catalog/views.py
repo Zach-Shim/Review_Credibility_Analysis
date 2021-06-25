@@ -2,8 +2,11 @@
 import datetime
 import scipy.stats as stats
 import matplotlib.pyplot as plt, mpld3
+import matplotlib
+matplotlib.use("TkAgg")
 import numpy as np
 import pandas as pd
+import os
 
 # Django Imports
 from django.shortcuts import render
@@ -39,9 +42,99 @@ def index(request):
     return render(request, 'index.html', context=context)
 
 
+
+'''
+    Parameters:
+        (productASIN, objects you want to graph...)
+'''
+def plot(productASIN, duplicate, incentivized, anomaly):
+    print("plot graphs")
+    # create a graph
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(11, 7))
+    fig.subplots_adjust(wspace=0.4)
+    '''
+    duplicate.plot({"figure": fig, "axis": ax1}, productASIN)
+    incentivized.plot{"figure": fig, "axis": ax2}, productASIN)
+    anomaly.plot{"figure": fig, "axis": ax3}, productASIN)
+    '''
+
+
+    # Pull duplicate review values ------------------------------------------------------------------------
+    duplicateInfo = duplicate.getDuplicateInfo()
+    duplicateTimeInts = duplicateInfo["duplicateTimeInts"]
+    duplicateScores = duplicateInfo["duplicateScores"]
+
+    # Get duplicate review bins 
+    duplicateBins = duplicate.getBins()
+    dupTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in duplicateBins]
+    del dupTimestamps[-1]
+
+    # Graph Duplicate Reviews
+    if (len(duplicateTimeInts) != 0):
+        duplicateReviewsCount, bin_edges3, binnumber3 = stats.binned_statistic(duplicateTimeInts, duplicateScores, statistic='count', bins=duplicateBins)
+        duplicateReviewsCount = duplicateReviewsCount[np.isfinite(duplicateReviewsCount)]
+
+        duplicateValues = {"timestamp": dupTimestamps, "value": duplicateReviewsCount}
+        duplicateSeries = pd.DataFrame(duplicateValues)
+        dp = duplicateSeries.plot(x='timestamp', y='value', title='Duplicate Reviews Count', kind='line', ax=ax4)
+        dp.set_ylabel("Number of Reviews")
+        dp.set_xlabel("Time")
+    else:
+        fig.delaxes(ax4)
+
+
+
+    # Pull incentivized review values ------------------------------------------------------------------------------------
+    incentivizedTimesInt = incentivized.getIncentivizedTimes()
+    incentivizedScore = incentivized.getIncentivizedScore()
+
+    # Get incentivized review bins 
+    incentivizedBins = incentivized.getBins()
+    incentivizedTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in incentivizedBins]
+    del incentivizedTimestamps[-1]
+
+    # Graph Incentivized Reviews
+    if (len(incentivizedTimesInt) != 0):
+        incentivizedReviewsCount, bin_edges2, binnumber2 = stats.binned_statistic(incentivizedTimesInt, incentivizedScore, statistic='count', bins=incentivizedTimestamps)
+        incentivizedReviewsCount = incentivizedReviewsCount[np.isfinite(incentivizedReviewsCount)]
+
+        incentivizedValues = {"timestamp": incentivizedTimestamps, "value": incentivizedReviewsCount}
+        incentivizedSeries = pd.DataFrame(incentivizedValues)
+        ip = incentivizedSeries.plot(x='timestamp', y='value', title='Incentivized Reviews Count ', kind='line', ax=ax3, rot=90)
+        ip.set_ylabel("Number of Reviews")
+        ip.set_xlabel("Time")
+    else:
+        fig.delaxes(ax3)
+
+    
+
+    # Pull anomaly review values ------------------------------------------------------------------------------------
+    series = anomaly.getSeries()
+    averageRatingSeries = series["averageRatingSeries"]
+    reviewCountsSeries = series["reviewCountsSeries"]
+
+    # Get anomaly review bins 
+    anomlyBins = anomaly.getBins()
+    anomalybinsTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in anomlyBins]
+    anomaly.compressBins()
+
+    # Graph average rating series graph
+    rp = averageRatingSeries.plot(x='timestamp', y='value', title='Average Rating', legend = True, kind='line', ax=ax1)
+    rp.set_ylabel("Rating Value")
+    rp.set_xlabel("Time")
+
+
+    fig.show()
+    fig.autofmt_xdate()
+    fig_HTML = mpld3.fig_to_html(fig)
+    return fig_HTML
+
+
+
 # incentivizedReviews = Product.objects.filter(review__asin=productASIN).exclude(incentivizedRatio=0).count()
 def result(request, productID):
     # static
+    print("calculating similarity")
     duplicate = Similarity()
     duplicate.calculate(productID)
     duplicateRatio = Product.objects.values('duplicateRatio').filter(asin=productID)[0]['duplicateRatio']
@@ -51,19 +144,25 @@ def result(request, productID):
     reviewsForProduct = Review.objects.all().filter(asin=productID).count()
 
     # Calculate Incentivized Ratio 
+    print("calculating incentivized")
     incentivized = Incentivized()
     incentivized.detectKeywords()
     incentivized.calculate(productID)
     incentivizedRatio = Product.objects.values('incentivizedRatio').filter(asin=productID)[0]['incentivizedRatio']
 
     # Calculate Rating Anomaly Rate and Interval/range of review posting dates 
+    print("calculating anomaly")
     r_anomaly = Anomaly()
     r_anomaly.detect(productID)
     ratingAnomalyRate = Product.objects.values('ratingAnomalyRate').filter(asin=productID)[0]['ratingAnomalyRate']
     reviewAnomalyRate = Product.objects.values('reviewAnomalyRate').filter(asin=productID)[0]['reviewAnomalyRate']
     
     # plot fake review score data
-    figure = __plot(productID, duplicate, incentivized, r_anomaly)
+    __current_dir__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    outfile = open(__current_dir__ + "results_output.html", "w")
+    figure = plot(productID, duplicate, incentivized, r_anomaly)
+    outfile.write(figure)
+    outfile.close()
 
     # Create html product link
     link = ("https://www.amazon.com/dp/" + productID)
@@ -81,85 +180,4 @@ def result(request, productID):
     # Render the HTML template index.html with the data in the context variable
     return render(request, 'result.html', context=context)
 
-
-    '''
-        Parameters:
-            (productASIN, objects you want to graph...)
-    '''
-    def __plot(productASIN, duplicate, incentivized, anomaly):
-
-        # create a graph
-        fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(11, 7))
-        fig.subplots_adjust(wspace=0.4)
-
-
-
-        # Pull duplicate review values ------------------------------------------------------------------------
-        duplicateInfo = duplicate.getDuplicateInfo()
-        duplicateTimeInts = duplicateInfo["duplicateTimeInts"]
-        duplicateScores = duplicateInfo["duplicateScores"]
-
-        # Get duplicate review bins 
-        duplicateBins = duplicate.getBins()
-        dupTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in duplicateBins]
-        del dupTimestamps[-1]
-
-        # Graph Duplicate Reviews
-        if (len(duplicateTimeInts) != 0):
-            duplicateReviewsCount, bin_edges3, binnumber3 = stats.binned_statistic(duplicateTimeInts, duplicateScores, statistic='count', bins=duplicateBins)
-            duplicateReviewsCount = duplicateReviewsCount[np.isfinite(duplicateReviewsCount)]
-            duplicateValues = {"timestamp": dupTimestamps, "value": duplicateReviewsCount}
-            duplicateSeries = pd.DataFrame(duplicateValues)
-            dp = duplicateSeries.plot(x='timestamp', y='value', title='Duplicate Reviews Count', kind='line', ax=ax4)
-            dp.set_ylabel("Number of Reviews")
-            dp.set_xlabel("Time")
-        else:
-            fig.delaxes(ax4)
-
-
-
-        # Pull incentivized review values ------------------------------------------------------------------------------------
-        incentivizedTimesInt = incentivized.getIncentivizedTimes()
-        incentivizedScore = incentivized.getIncentivizedScore()
-
-        # Get incentivized review bins 
-        incentivizedBins = incentivized.getBins()
-        incentivizedTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in incentivizedBins]
-        del incentivizedTimestamps[-1]
-
-        # Graph Incentivized Reviews
-        if (len(incentivizedTimesInt) != 0):
-            incentivizedReviewsCount, bin_edges2, binnumber2 = stats.binned_statistic(incentivizedTimesInt, incentivizedScore, statistic='count', bins=incentivizedTimestamps)
-            incentivizedReviewsCount = incentivizedReviewsCount[np.isfinite(incentivizedReviewsCount)]
-
-            incentivizedValues = {"timestamp": incentivizedTimestamps, "value": incentivizedReviewsCount}
-            incentivizedSeries = pd.DataFrame(incentivizedValues)
-            ip = incentivizedSeries.plot(x='timestamp', y='value', title='Incentivized Reviews Count ', kind='line', ax=ax3, rot=90)
-            ip.set_ylabel("Number of Reviews")
-            ip.set_xlabel("Time")
-        else:
-            fig.delaxes(ax3)
-
-        
-
-        # Pull anomaly review values ------------------------------------------------------------------------------------
-        series = anomaly.getSeries()
-        averageRatingSeries = series["averageRatingSeries"]
-        reviewCountsSeries = series["reviewCountsSeries"]
-
-        # Get anomaly review bins 
-        anomlyBins = anomaly.getBins()
-        anomalybinsTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in anomlyBins]
-        anomaly.compressBins()
-
-        # Graph average rating series graph
-        rp = averageRatingSeries.plot(x='timestamp', y='value', title='Average Rating', legend = True, kind='line', ax=ax1)
-        rp.set_ylabel("Rating Value")
-        rp.set_xlabel("Time")
-
-
-
-        fig.autofmt_xdate()
-        fig_HTML = mpld3.fig_to_html(fig)
-        return fig_HTML
 

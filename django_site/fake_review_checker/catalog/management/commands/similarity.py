@@ -6,6 +6,9 @@
 # Standard library imports
 import datetime
 import math
+import matplotlib.pyplot as plt, mpld3
+import matplotlib
+matplotlib.use("TkAgg")
 import numpy as np
 import operator
 import sys
@@ -32,6 +35,13 @@ class Command(BaseCommand):
         similarity.InvertedIndex()
         matchingKeys = similarity.CompareAllHashes()
 
+        similarity.detect("B001LHVOVK")
+        similarity.calculate("B001LHVOVK")
+        fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
+        fig.subplots_adjust(wspace=0.4)
+        similarity.plot({"figure": fig, "axis": ax1}, "B001LHVOVK")
+        fig.show()
+
 
 
 # Calculates the similarity score for a given Product's Reviews
@@ -49,6 +59,8 @@ class Similarity():
         # compare hashes
         self.threshold = 0.3
 
+        # invoking the constructor of the parent class  
+        #super(Incentivized, self).__init__()  
 
     # store bigram numHash {index: bigram: review} in dictionary for efficiency
     def InvertedIndex(self):
@@ -105,9 +117,34 @@ class Similarity():
 
 
 
+    def detect(self, productASIN):
+        return getInfo(productASIN)
+
+
+
+    def plot(self, subplot, method, productASIN):
+        # Get unixReviewTimes and scores of all fake reviews
+        info = self.getInfo(productASIN)
+        unixReviewTimes = info["unixReviewTimes"]
+        scores = info["scores"]
+
+        # error checking for empty graph
+        if (len(unixReviewTimes) == 0 or len(scores) == 0):
+            subplot["figure"].delaxes(subplot["axis"])
+            return
+
+        # Calculate an even number of bins based on range of unixReviewTimes x months
+        self.bins = self.getBins(productASIN)
+        self.fakeReviewInfo = info
+
+        self.method = 'count'
+        self.graphInfo = {"title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        return self.plotAxis(self.bins, subplot, productASIN)
+
+
     # retrieve the information of all duplicate reviews for a given asin 
     # method used by views.py - plot()
-    def getDuplicateInfo(self, productASIN):
+    def getInfo(self, productASIN):
         duplicateTimeInts = []
         duplicateScores = []
 
@@ -119,34 +156,22 @@ class Similarity():
 
 
 
-    def getBins(self, productASIN):
-        reviews = Review.objects.filter(asin=productASIN, duplicate=1)
-
-        # get posting date range (earliest post - most recent post)
-        mostRecentDate = Review.objects.filter(asin=productASIN, duplicate=1).aggregate(Min('unixReviewTime'))
-        farthestDate = Review.objects.filter(asin=productASIN, duplicate=1).aggregate(Max('unixReviewTime'))
-        reviewRange = datetime.datetime.fromtimestamp(farthestDate['unixReviewTime__max']) - datetime.datetime.fromtimestamp(mostRecentDate['unixReviewTime__min'])
-        
-        # calculate review range
-        reviewDayRange = reviewRange.days
-        bucketCount = math.ceil(reviewRange.days / 30)
-        print("It has reviews ranging " + str(reviewDayRange) + " days. Bucket count " + str(bucketCount))
-        
-        # Returns num evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
-        bins = np.linspace(mostRecentDate['unixReviewTime__min'], farthestDate['unixReviewTime__max'], bucketCount)
-        return bins
-
-
-
     # calculates the duplicateRatio = (number of duplicate reviews for a given asin) / (total reviews for a given asin)
     def calculate(self, productASIN):
         duplicates = Review.objects.filter(asin=productASIN, duplicate=1).count()
         totalReviews = Review.objects.filter(asin=productASIN).count()
         duplicateScore = round(duplicates / totalReviews * 100, 2)
         Product.objects.filter(asin=productASIN).update(duplicateRatio=duplicateScore)
-        
-        #print(duplicates)
-        #print(totalReviews)
-        #print(duplicateScore)
-
         return duplicateScore
+
+
+
+    def getBins(self, productASIN):
+        reviews = Review.objects.filter(asin=productASIN, duplicate=1)
+        return self.getDateRange(reviews)
+
+
+
+
+
+

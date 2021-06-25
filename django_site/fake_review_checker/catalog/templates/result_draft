@@ -1,0 +1,62 @@
+<html>   
+<body>
+	<header>
+		<div id="logo"><img src="logo.png">Product Review Credibility Analysis</div>
+	</header>
+
+	<section>
+	    <aside>
+		    <nav>  
+			    <ul>
+				    <li><a href= 
+			    </ul>
+		    </nav>
+	    </aside>
+    </section>
+
+    <section>
+        <strong> Credibility analysis report for ASIN <strong> {{ currentAsin }} </strong> 
+        <br><br>
+    </section>
+
+
+	<section id="pageContent">
+		<main role="main"></main>
+    </section>
+    <footer>
+        <p></p>
+    </footer>
+</body>
+</html>   
+
+
+    <section align=\"center\">
+        <div>
+            <h1>Count</h1>
+            <br><br><br>
+            <strong> {{ reviewsForProduct }} reviews </strong>
+        </div>
+    
+
+        <div>
+            <h1>Time Range</h1>
+            <br><br><br>
+            <strong> {{ reviewRange }} days </strong>
+        </div>
+    </section>
+
+    {% if ratingValueAnamolies == 0 %}
+        <font color=\"green\">0 rating value</font><br>
+    {% elif ratingValueAnamolies == 1 %}
+        <font color=\"orange\">rating values</font><br>
+    {% elif ratingValueAnamolies > 1 %}
+        <font color=\"red\">rating values</font><br>
+    {% endif %}
+
+    {% if ratingCountAnamolies == 0 %}
+        <font color=\"green\">0 review count</font>
+    {% elif ratingCountAnamolies == 1 %}
+        <font color=\"orange\">review count</font>
+    {% elif ratingCountAnamolies > 1 %}
+        <font color=\"red\">review count</font>
+    {% endif %}
