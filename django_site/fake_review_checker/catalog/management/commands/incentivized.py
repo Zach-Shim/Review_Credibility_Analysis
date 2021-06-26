@@ -49,7 +49,6 @@ class Command(BaseCommand):
         #plot.show()
         #plot["figure"].show()
         #plot["figure"].show()
-        
 
 
 

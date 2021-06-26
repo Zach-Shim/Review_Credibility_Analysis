@@ -110,7 +110,7 @@ class Similarity():
                 if estJ > self.threshold:
                     # duplicate is a bool, so updating to 1 means we are marking this review as a duplicate
                     self.duplicateInfo[review.asin] = [x[0].asin]
-                    Review.objects.filter(reviewID=x[0].reviewID, asin=x[0].asin, reviewerID=x[0].reviewerID).update(duplicate=1)     
+                    Review.objects.filter(asin=x[0].asin, reviewerID=x[0].reviewerID).update(duplicate=1)     
                 else:
                     break
             review_num += 1
@@ -169,9 +169,3 @@ class Similarity():
     def getBins(self, productASIN):
         reviews = Review.objects.filter(asin=productASIN, duplicate=1)
         return self.getDateRange(reviews)
-
-
-
-
-
-

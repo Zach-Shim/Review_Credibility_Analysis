@@ -26,7 +26,6 @@ class DetectionAlgorithms:
         self.method = ""
 
 
-
     def detect(self, productASIN):
         print("detect parent class")
 
