@@ -34,21 +34,22 @@ class Command(BaseCommand):
 
     # adds an argument to **kwards in the handle function
     def add_arguments(self, parser):
-        parser.add_argument('productASIN', type=str, help='Indicates the asin of the product we are currently analyzing')
+        parser.add_argument('product_ASIN', type=str, help='Indicates the asin of the product we are currently analyzing')
 
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):
-        asin = kwargs['productASIN']
+        asin = kwargs['product_ASIN']
         incentivized = Incentivized()
-        incentivized.findKeywords()
-        incentivized.calculate(asin)
+        incentivized.find_keywords()
+        incentivized.detect(asin)
         
+        '''
         fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
         fig.subplots_adjust(wspace=0.4)
         plot = incentivized.plot({"figure": fig, "axis": ax1}, asin)
         #plot.show()
         #plot["figure"].show()
-        #plot["figure"].show()
+        '''
 
 
 
@@ -67,12 +68,14 @@ class Incentivized(DetectionAlgorithms):
         self.completeKeyPhraseList = []
         self.antonyms = []
 
+        self.incentivized_review_times = []
+        self.incentivized_scores = []
         # invoking the constructor of the parent class  
         #super(Incentivized, self).__init__()  
 
 
 
-    def findKeywords(self):
+    def find_keywords(self):
         for word in self.keyWords:
             synonyms = []
             for syn in wordnet.synsets(word):
@@ -88,88 +91,94 @@ class Incentivized(DetectionAlgorithms):
 
 
 
-    def detect(self, productASIN):
-        # query total number of reviews for current product, then query all reviews where the incentivzed score != 0
-        reviews = Review.objects.all().filter(asin=productASIN)
-        totalReviews = reviews.count()
-        
-        # search each review for incentivized keywords; incentivizedList is used for review_anomaly
+    def detect(self, product_ASIN):
+        # search each review in product_ASIN for incentivized keywords; incentivizedList is used for review_anomaly
         self.words_re = re.compile("|".join(self.completeKeyPhraseList))
-        incentivizedReviews = 0
-        for review in reviews:
-            if self.words_re.search(review.reviewText):
-                incentivizedReviews += 1
-                #Review.objects.filter(reviewID=review.reviewID, asin=review.asin, reviewerID=review.reviewerID).update(incentivized=1)
-
-        return getInfo(productASIN)
+        queries_to_update = []
+        for review in Review.objects.filter(asin=product_ASIN).values('id', 'reviewText'):
+            if self.words_re.search(review['reviewText']):
+                queries_to_update.append(review['id'])
+        self._update_db(queries_to_update)
 
 
 
-    def plot(self, subplot, productASIN):
+    # accepts a list of review id's to update
+    def _update_db(self, queries_to_update):
+        print("\nPushing to database " + str(datetime.datetime.now()) + " start")
+        for review in queries_to_update:
+            obj = Review.objects.filter(id=review).values('unixReviewTime', 'overall')
+            print(obj)
+            self.incentivized_review_times.append(obj[0]['unixReviewTime'])
+            self.incentivized_scores.append(obj[0]['overall'])
+            obj.update(incentivized=1)
+        print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
 
+
+
+    def plot(self, subplot, product_ASIN):
         # error checking for empty graph
-        info = self.getInfo(productASIN)
+        info = self.get_info(product_ASIN)
         if (len(info["unixReviewTimes"]) == 0 or len(info["scores"]) == 0):
             subplot["figure"].delaxes(subplot["axis"])
             return "Empty Plot"
 
         # Calculate an even number of bins based on range of unixReviewTimes x months
-        self.bins = self.getBins(productASIN)
-        self.fakeReviewInfo = info
+        self.bins = self.getBins(product_ASIN)
+        self.fake_review_info = info
 
         self.method = 'count'
-        self.graphInfo = {"title": "Incentivized Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        #return self.plotAxis(self.bins, subplot, productASIN)
+        self.graph_info = {"title": "Incentivized Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        #return self.plotAxis(self.bins, subplot, product_ASIN)
 
-        unixReviewTimes = self.fakeReviewInfo["unixReviewTimes"]
-        scores = self.fakeReviewInfo["scores"]
+        # Get unixReviewTimes and scores of all fake reviews
+        unix_review_times = self.fake_review_info["unixReviewTimes"]
+        scores = self.fake_review_info["scores"]
 
         # Place these metrics into even bins of values
-        reviewsCount, bin_edges, binnumber = stats.binned_statistic(unixReviewTimes, scores, statistic=method, bins=self.bins)
-        reviewsCount = reviewsCount[np.isfinite(reviewsCount)]
+        review_count, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=method, bins=self.bins)
+        review_count = review_count[np.isfinite(review_count)]
 
         # Get the timed intervals of each bin
-        binTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in self.bins]
-        self.compressBins(reviewsCount, binTimestamps)
-        
+        bin_timestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in self.bins]
+        self.compress_bins(review_count, bin_timestamps)
+
         # Create data frame that will be translated to a subplot
-        graph_series = {"timestamp": binTimestamps, "value": reviewsCount}
+        graph_series = {"timestamp": bin_timestamps, "value": review_count}
         graph_frame = pd.DataFrame(graph_frame)
-        
+
         # Graph the values (fake score x time intervals)
         title = self.title + " Review Counts"
         y_axis = "Number of Reviews"
         x_axis = "Time"
 
-        dp = graph_frame.plot(x='timestamp', y='value', title=self.graphInfo['title'], kind='line', ax=subplot["axis"])
+        dp = graph_frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplots["axis"])
         dp.set_ylabel(y_axis)
         dp.set_xlabel(x_axis)
-        
-        plt.show()
-        return subplot
+
+        return dp
 
 
 
-    def getInfo(self, productASIN):
+    def get_info(self, product_ASIN):
         unixReviewTimes = []
         scores = []
-        for review in Review.objects.filter(asin=productASIN, incentivized=1):
+        for review in Review.objects.filter(asin=product_ASIN, incentivized=1):
             unixReviewTimes.append(review.unixReviewTime)
             scores.append(review.overall)
         return {"unixReviewTimes": unixReviewTimes, "scores": scores}
 
 
 
-    def calculate(self, productASIN):
+    def calculate(self, product_ASIN):
         # calculate incentivized score = (total number of incentivized reviews) / (total number of reviews for asin)
-        incentivized = Review.objects.filter(asin=productASIN, incentivized=1).count()
-        totalReviews = Review.objects.filter(asin=productASIN).count()
-        incentivizedScore = round(incentivized / totalReviews * 100, 2)
-        Product.objects.filter(asin=productASIN).update(incentivizedRatio=(incentivizedScore))
-        return incentivizedScore
+        incentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
+        total_reviews = Review.objects.filter(asin=product_ASIN).count()
+        incentivized_score = round(incentivized / total_reviews * 100, 2)
+        Product.objects.filter(asin=product_ASIN).update(incentivizedRatio=(incentivized_score))
+        return incentivized_score
 
 
 
-    def getBins(self, productASIN):
-        reviews = Review.objects.filter(asin=productASIN, incentivized=1)
-        return self.getDateRange(reviews)
+    def get_bins(self, product_ASIN):
+        reviews = Review.objects.filter(asin=product_ASIN, incentivized=1)
+        return self.get_date_range(reviews)

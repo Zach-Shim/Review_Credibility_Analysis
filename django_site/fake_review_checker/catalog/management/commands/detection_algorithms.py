@@ -19,8 +19,8 @@ from ...models import User, Product, Review
 class DetectionAlgorithms:
     
     def __init__(self):
-        self.fakeReviewInfo = dict()
-        self.graphInfo = dict()
+        self.fake_review_info = dict()
+        self.graph_info = dict()
     
         self.bins = []
         self.method = ""
@@ -31,21 +31,21 @@ class DetectionAlgorithms:
 
 
 
-    def plotAxis(self, bins, subplots, method, productASIN):
+    def plot_axes(self, bins, subplots, method, productASIN):
         # Get unixReviewTimes and scores of all fake reviews
-        unixReviewTimes = self.fakeReviewInfo["unixReviewTimes"]
-        scores = self.fakeReviewInfo["scores"]
+        unix_review_times = self.fake_review_info["unixReviewTimes"]
+        scores = self.fake_review_info["scores"]
 
         # Place these metrics into even bins of values
-        reviewsCount, bin_edges, binnumber = stats.binned_statistic(unixReviewTimes, scores, statistic=method, bins=self.bins)
-        reviewsCount = reviewsCount[np.isfinite(reviewsCount)]
+        review_count, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=method, bins=self.bins)
+        review_count = review_count[np.isfinite(review_count)]
 
         # Get the timed intervals of each bin
-        binTimestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in self.bins]
-        self.compressBins(reviewsCount, binTimestamps)
+        bin_timestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in self.bins]
+        self.compress_bins(review_count, bin_timestamps)
 
         # Create data frame that will be translated to a subplot
-        graph_series = {"timestamp": binTimestamps, "value": reviewsCount}
+        graph_series = {"timestamp": bin_timestamps, "value": review_count}
         graph_frame = pd.DataFrame(graph_frame)
 
         # Graph the values (fake score x time intervals)
@@ -53,7 +53,7 @@ class DetectionAlgorithms:
         y_axis = "Number of Reviews"
         x_axis = "Time"
 
-        dp = graph_frame.plot(x='timestamp', y='value', title=self.graphInfo['title'], kind='line', ax=subplots["axis"])
+        dp = graph_frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplots["axis"])
         dp.set_ylabel(y_axis)
         dp.set_xlabel(x_axis)
 
@@ -62,49 +62,49 @@ class DetectionAlgorithms:
 
 
 
-    def compressBins(self, reviewsCount, binTimestamps):
+    def compress_bins(self, review_count, bin_timestamps):
         # if number of initial bins exceeds review count and average rating bins, minimize bins length until it is equal in size of review count and average rating
         i = j = 0
-        n = len(reviewsCount)
+        n = len(review_count)
         while i < n:
-            if reviewsCount[i] == 0:
-                del binTimestamps[j]
+            if review_count[i] == 0:
+                del bin_timestamps[j]
                 i = i + 1
             else:
                 j = j + 1
                 i = i + 1
-        del binTimestamps[-1]
+        del bin_timestamps[-1]
 
 
 
 
-    def getInfo(self, productASIN):
+    def get_info(self, product_ASIN):
         print("getInfo parent class")
 
 
 
-    def calculate(self, productASIN):
+    def calculate(self, product_ASIN):
         print("calculate parent class")
 
 
 
-    def getBins(self, productASIN):
+    def get_bins(self, product_ASIN):
         print("getBins parent class")
 
 
 
-    def getDateRange(self, reviews):
+    def get_date_range(self, reviews):
         # get posting date range (earliest post - most recent post)
-        mostRecentDate = reviews.aggregate(Min('unixReviewTime'))
-        farthestDate = reviews.aggregate(Max('unixReviewTime'))
-        reviewRange = datetime.datetime.fromtimestamp(farthestDate['unixReviewTime__max']) - datetime.datetime.fromtimestamp(mostRecentDate['unixReviewTime__min'])
+        most_recent_date = reviews.aggregate(Min('unixReviewTime'))
+        farthest_date = reviews.aggregate(Max('unixReviewTime'))
+        review_range = datetime.datetime.fromtimestamp(farthest_date['unixReviewTime__max']) - datetime.datetime.fromtimestamp(most_recent_date['unixReviewTime__min'])
         
         # calculate review range
-        reviewDayRange = reviewRange.days
-        bucketCount = math.ceil(reviewRange.days / 30)
-        print("Product has reviews ranging " + str(reviewDayRange) + " days. Bucket count " + str(bucketCount))
+        review_day_range = review_range.days
+        bucket_count = math.ceil(review_range.days / 30)
+        print("Product has reviews ranging " + str(review_day_range) + " days. Bucket count " + str(bucket_count))
         
         # Returns num evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
-        bins = np.linspace(mostRecentDate['unixReviewTime__min'], farthestDate['unixReviewTime__max'], bucketCount)
+        bins = np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
         return bins
     
