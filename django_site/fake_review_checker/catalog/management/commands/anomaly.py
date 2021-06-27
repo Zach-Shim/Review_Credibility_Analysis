@@ -91,13 +91,6 @@ class Anomaly(DetectionAlgorithms):
         review_frame = self.detect_review_anomalies(product_ASIN)
         rating_frame = self.detect_rating_anomalies(product_ASIN)
         return [review_frame, rating_frame]
-
-
-
-    def plot(self, subplot, product_ASIN):
-        axis1 = self.plot_review_anomalies(subplot[0])
-        axis2 = self.plot_rating_anomalies(subplot[1])
-        return [axis1, axis2]
         
 
 
@@ -117,6 +110,13 @@ class Anomaly(DetectionAlgorithms):
 
 
 
+    def plot(self, subplot, product_ASIN):
+        axis1 = self.plot_review_anomalies(subplot[0])
+        axis2 = self.plot_rating_anomalies(subplot[1])
+        return [axis1, axis2]
+
+
+        
     def plot_review_anomalies(self):
         self.graph_info = {"title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"}
         return plot_axes(subplot)
