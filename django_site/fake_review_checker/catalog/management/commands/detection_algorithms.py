@@ -18,15 +18,15 @@ from ...models import User, Product, Review
 
 class DetectionAlgorithms:
     
-    def __init__(self):
+    def __init__(self, method = None, graph_info = None):
         self.fake_review_info = dict()
-        self.graph_info = dict()
-    
-        self.bins = []
-        self.method = ""
-        self.product_ASIN = ""
-        self.graph_frame = []
 
+        self.method = method
+        self.graph_info = graph_info
+
+        self.graph_frames = dict()
+        self.bins = []
+        
 
 
     def detect(self, product_ASIN):
@@ -34,7 +34,7 @@ class DetectionAlgorithms:
 
 
 
-    def plot_axes(self, subplot = None):
+    def generate_frame(self, algorithm):
         # Get unixReviewTimes and scores of all fake reviews
         unix_review_times = self.fake_review_info["review_times"]
         scores = self.fake_review_info["review_scores"]
@@ -49,19 +49,32 @@ class DetectionAlgorithms:
 
         # Create data frame that will be translated to a subplot
         graph_series = {"timestamp": bin_timestamps, "value": review_count}
-        self.graph_frame = pd.DataFrame(graph_series)
+        self.graph_frames[algorithm] = pd.DataFrame(graph_series)
 
+
+
+    def plot_axes(self, subplot):
         # Graph the values (fake score x time intervals)
         title = self.graph_info['title'] 
         y_axis = self.graph_info['y_axis'] 
         x_axis = self.graph_info['x_axis'] 
 
-        if subplot != None:
-            dp = self.graph_frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplots["axis"])
+        for frame in self.graph_frames:
+            dp = frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplots["axis"])
             dp.set_ylabel(y_axis)
             dp.set_xlabel(x_axis)
             return dp
 
+
+
+    def empty_graph(self):
+        unix_review_times = self.fake_review_info["review_times"]
+        scores = self.fake_review_info["review_scores"]
+
+        # error checking for empty graph
+        if (len(unix_review_times) == 0 or len(scores) == 0):
+            subplot["figure"].delaxes(subplot["axis"])
+            return
 
 
 
@@ -72,7 +85,7 @@ class DetectionAlgorithms:
 
 
 
-    def get_info(self, product_ASIN):
+    def set_info(self, product_ASIN):
         print("getInfo parent class")
 
 

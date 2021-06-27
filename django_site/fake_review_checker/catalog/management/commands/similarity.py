@@ -47,7 +47,7 @@ class Command(BaseCommand):
 
 
 # Calculates the similarity score for a given Product's Reviews
-class Similarity():
+class Similarity(DetectionAlgorithms):
 
     def __init__(self):
         # For each of the 'num_of_hashes' hash functions, generate a different coefficient 'a' and 'b'.
@@ -64,7 +64,11 @@ class Similarity():
         self.threshold = 0.3
 
         # invoking the constructor of the parent class  
-        #super(Incentivized, self).__init__()  
+        method = 'count'
+        graph_info = {"title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        super(Similarity, self).__init__(method, graph_info)  
+
+
 
     # store bigram numHash {index: bigram: review} in dictionary for efficiency
     def invert_index(self):
@@ -144,28 +148,13 @@ class Similarity():
 
     def plot(self, subplot, method, product_ASIN):
         # Get unixReviewTimes and scores of all fake reviews
-        self.fake_review_info = self.get_info(product_ASIN)
-        unix_review_times = self.fake_review_info["unixReviewTimes"]
-        scores = self.fake_review_info["scores"]
-
-        # error checking for empty graph
-        if (len(unix_review_times) == 0 or len(scores) == 0):
-            subplot["figure"].delaxes(subplot["axis"])
+        self.set_bins(product_ASIN)
+        self.set_info()
+        if not self.empty_graph():
             return
 
-        # Calculate an even number of bins based on range of unix_review_times x months
-        self.bins = self.get_bins(product_ASIN)
-
-        self.method = 'count'
-        self.graph_info = {"title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        return self.plot_axes(self.bins, subplot, product_ASIN)
-
-
-
-    # retrieve the information of all duplicate reviews for a given asin 
-    # method used by views.py - plot()
-    def get_info(self):
-        return {"review_times": duplicate_review_times, "scores": duplicate_scores}
+        self.generate_frame('similarity')
+        return self.plot_axes(self.bins, subplot)
 
 
 
@@ -179,6 +168,14 @@ class Similarity():
 
 
 
-    def get_bins(self, product_ASIN):
+    # retrieve the information of all duplicate reviews for a given asin 
+    # method used by views.py - plot()
+    def set_info(self):
+        self.fake_review_info = {"review_times": duplicate_review_times, "scores": duplicate_scores}
+
+
+
+    # Calculate an even number of bins based on range of unixReviewTimes x months
+    def set_bins(self, product_ASIN):
         reviews = Review.objects.filter(asin=product_ASIN, duplicate=1)
         return self.get_date_range(reviews)

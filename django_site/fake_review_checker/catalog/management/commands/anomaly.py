@@ -67,85 +67,65 @@ class Command(BaseCommand):
 class Anomaly(DetectionAlgorithms):
 
     def __init__(self):
+
+        self.series = dict()
         self.rating_value_anomalies = defaultdict(dict)
         self.review_count_anomalies = defaultdict(dict)
 
         # invoking the constructor of the parent class  
-        #super(Incentivized, self).__init__()  
+        super(Anomaly, self).__init__()  
+
 
 
     # returns reviews in bins of 30-day time series
     def detect(self, product_ASIN):
-        self.product_ASIN = product_ASIN
-        self.get_bins(product_ASIN)
-        self.fake_review_info = self.get_info(product_ASIN)   
-        
+        self.set_bins(product_ASIN)
+        self.set_info()
+        if not self.empty_graph():
+            return
         return self.detect_helper(product_ASIN)
 
 
 
     def detect_helper(self, product_ASIN):
-        # Get unixReviewTimes and scores of all fake reviews
-        unix_review_times = self.fake_review_info["review_times"]
-        scores = self.fake_review_info["review_scores"]
-
-        # error checking for empty graph
-        if (len(unix_review_times) == 0 or len(scores) == 0):
-            subplot["figure"].delaxes(subplot["axis"])
-            return
-
-        series = []
-        series.append(self.plot_review_anomalies(product_ASIN))
-        series.append(self.plot_rating_anomalies(product_ASIN))
-        return series
+        review_frame = self.detect_review_anomalies(product_ASIN)
+        rating_frame = self.detect_rating_anomalies(product_ASIN)
+        return [review_frame, rating_frame]
 
 
 
     def plot(self, subplot, product_ASIN):
-        # Get unix_review_times and scores of all fake reviews
-        info = self.getInfo(product_ASIN)
-        unix_review_times = info["review_times"]
-        scores = info["review_scores"]
-
-        # error checking for empty graph
-        if (len(unix_review_times) == 0 or len(scores) == 0):
-            subplot["figure"].delaxes(subplot["axis"])
-            return
-
-        series = []
-        self.bins = self.get_bins(product_ASIN)
-        self.fake_review_info = info
-        series.append(self.plot_review_anomalies(subplot, product_ASIN))
-        series.append(self.plot_rating_anomalies(subplot, product_ASIN))
-        return series
+        axis1 = self.plot_review_anomalies(subplot[0])
+        axis2 = self.plot_rating_anomalies(subplot[1])
+        return [axis1, axis2]
         
 
 
-    def plot_review_anomalies(self, product_ASIN, subplot = None):
+    def detect_review_anomalies(self, product_ASIN):
         # Calculate an even number of bins based on range of unix_review_times x months        
         self.method = 'mean'
-        self.graph_info = {"title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"}
-        self.plot_axes(subplot)
-        str(self.calculate(product_ASIN))
-
-
-
-    def plot_rating_anomalies(self, product_ASIN, subplot = None):
-        # Calculate an even number of bins based on range of unixReviewTimes x months 
-        self.method = 'count'
-        self.graph_info = {"title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        self.plot_axes(subplot)
+        self.generate_frame('review_count_anomaly')
         return self.calculate(product_ASIN)
 
 
 
-    def get_info(self, product_ASIN):
-        # query sets of review data for histogram bins
-        reviews = Review.objects.filter(asin=product_ASIN)
-        review_times_int = [review['unixReviewTime'] for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
-        review_scores = [review['overall'] for review in reviews.values('overall').order_by('overall')]
-        return {"review_times": review_times_int, "review_scores": review_scores}
+    def detect_rating_anomalies(self, product_ASIN):
+        # Calculate an even number of bins based on range of unixReviewTimes x months 
+        self.method = 'count'
+        self.generate_frame('rating_value_anomaly')
+        return self.calculate(product_ASIN)
 
+
+
+    def plot_review_anomalies(self):
+        self.graph_info = {"title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        return plot_axes(subplot)
+
+
+
+    def plot_rating_anomalies(self, subplot):
+        self.graph_info = {"title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"}
+        return plot_axes(subplot)
 
 
 
@@ -155,7 +135,7 @@ class Anomaly(DetectionAlgorithms):
         if(self.method == 'mean'):
             # calculate anomalies in rating value distribution
             try:
-                self.review_count_anomalies = detect_ts(self.graph_frame, max_anoms=0.02, direction='both')
+                self.review_count_anomalies = detect_ts(self.graph_frames['review_count_anomaly'], max_anoms=0.02, direction='both')
             except:
                 self.review_count_anomalies['anoms']['anoms'] = []
             
@@ -167,7 +147,7 @@ class Anomaly(DetectionAlgorithms):
         if(self.method == 'count'):
             # calculate anomalies in review value distribution
             try:
-                self.rating_value_anomalies = detect_ts(self.graph_frame, max_anoms=0.02, direction='both')
+                self.rating_value_anomalies = detect_ts(self.graph_frames['rating_value_anomaly'], max_anoms=0.02, direction='both')
             except:
                 self.rating_value_anomalies['anoms']['anoms'] = []
             
@@ -178,7 +158,16 @@ class Anomaly(DetectionAlgorithms):
 
 
 
-    def get_bins(self, product_ASIN):
+    def set_info(self, product_ASIN):
+        # query sets of review data for histogram bins
+        reviews = Review.objects.filter(asin=product_ASIN)
+        review_times_int = [review['unixReviewTime'] for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
+        review_scores = [review['overall'] for review in reviews.values('overall').order_by('overall')]
+        self.fake_review_info = {"review_times": review_times_int, "review_scores": review_scores}
+
+
+
+    def set_bins(self, product_ASIN):
         reviews = Review.objects.filter(asin=product_ASIN)
         self.bins = self.get_date_range(reviews)
         return

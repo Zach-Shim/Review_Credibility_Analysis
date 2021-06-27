@@ -70,8 +70,11 @@ class Incentivized(DetectionAlgorithms):
 
         self.incentivized_review_times = []
         self.incentivized_scores = []
+        
         # invoking the constructor of the parent class  
-        #super(Incentivized, self).__init__()  
+        method = 'count'
+        graph_info = {"title": "Incentivized Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        super(Incentivized, self).__init__(method, graph_info)  
 
 
 
@@ -118,56 +121,14 @@ class Incentivized(DetectionAlgorithms):
 
 
     def plot(self, subplot, product_ASIN):
-        # error checking for empty graph
-        info = self.get_info(product_ASIN)
-        if (len(info["unixReviewTimes"]) == 0 or len(info["scores"]) == 0):
-            subplot["figure"].delaxes(subplot["axis"])
-            return "Empty Plot"
-
-        # Calculate an even number of bins based on range of unixReviewTimes x months
-        self.bins = self.getBins(product_ASIN)
-        self.fake_review_info = info
-
-        self.method = 'count'
-        self.graph_info = {"title": "Incentivized Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        #return self.plotAxis(self.bins, subplot, product_ASIN)
-
         # Get unixReviewTimes and scores of all fake reviews
-        unix_review_times = self.fake_review_info["unixReviewTimes"]
-        scores = self.fake_review_info["scores"]
+        self.set_bins(product_ASIN)
+        self.set_info()
+        if not self.empty_graph():
+            return
 
-        # Place these metrics into even bins of values
-        review_count, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=method, bins=self.bins)
-        review_count = review_count[np.isfinite(review_count)]
-
-        # Get the timed intervals of each bin
-        bin_timestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in self.bins]
-        self.compress_bins(review_count, bin_timestamps)
-
-        # Create data frame that will be translated to a subplot
-        graph_series = {"timestamp": bin_timestamps, "value": review_count}
-        graph_frame = pd.DataFrame(graph_frame)
-
-        # Graph the values (fake score x time intervals)
-        title = self.title + " Review Counts"
-        y_axis = "Number of Reviews"
-        x_axis = "Time"
-
-        dp = graph_frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplot["axis"])
-        dp.set_ylabel(y_axis)
-        dp.set_xlabel(x_axis)
-
-        return dp
-
-
-
-    def get_info(self, product_ASIN):
-        unixReviewTimes = []
-        scores = []
-        for review in Review.objects.filter(asin=product_ASIN, incentivized=1):
-            unixReviewTimes.append(review.unixReviewTime)
-            scores.append(review.overall)
-        return {"unixReviewTimes": unixReviewTimes, "scores": scores}
+        self.generate_frame('incentivized')
+        return self.plot_axes(subplot)
 
 
 
@@ -181,6 +142,16 @@ class Incentivized(DetectionAlgorithms):
 
 
 
-    def get_bins(self, product_ASIN):
+    def set_info(self, product_ASIN):
+        unixReviewTimes = []
+        scores = []
+        for review in Review.objects.filter(asin=product_ASIN, incentivized=1):
+            unixReviewTimes.append(review.unixReviewTime)
+            scores.append(review.overall)
+        self.fake_review_info = {"unixReviewTimes": unixReviewTimes, "scores": scores}
+
+
+
+    def set_bins(self, product_ASIN):
         reviews = Review.objects.filter(asin=product_ASIN, incentivized=1)
         return self.get_date_range(reviews)
