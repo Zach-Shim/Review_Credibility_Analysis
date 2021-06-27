@@ -100,6 +100,8 @@ class Incentivized(DetectionAlgorithms):
                 queries_to_update.append(review['id'])
         self._update_db(queries_to_update)
 
+        return self.calculate(product_ASIN)
+
 
 
     # accepts a list of review id's to update
@@ -151,7 +153,7 @@ class Incentivized(DetectionAlgorithms):
         y_axis = "Number of Reviews"
         x_axis = "Time"
 
-        dp = graph_frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplots["axis"])
+        dp = graph_frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplot["axis"])
         dp.set_ylabel(y_axis)
         dp.set_xlabel(x_axis)
 

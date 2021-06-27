@@ -138,15 +138,15 @@ class Similarity():
 
 
     def detect(self, product_ASIN):
-        return get_info(product_ASIN)
+        return self.calculate(product_ASIN)
 
 
 
     def plot(self, subplot, method, product_ASIN):
         # Get unixReviewTimes and scores of all fake reviews
-        info = self.get_info(product_ASIN)
-        unix_review_times = info["unixReviewTimes"]
-        scores = info["scores"]
+        self.fake_review_info = self.get_info(product_ASIN)
+        unix_review_times = self.fake_review_info["unixReviewTimes"]
+        scores = self.fake_review_info["scores"]
 
         # error checking for empty graph
         if (len(unix_review_times) == 0 or len(scores) == 0):
@@ -155,7 +155,6 @@ class Similarity():
 
         # Calculate an even number of bins based on range of unix_review_times x months
         self.bins = self.get_bins(product_ASIN)
-        self.fake_review_info = info
 
         self.method = 'count'
         self.graph_info = {"title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}

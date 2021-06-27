@@ -24,20 +24,23 @@ class DetectionAlgorithms:
     
         self.bins = []
         self.method = ""
+        self.product_ASIN = ""
+        self.graph_frame = []
 
 
-    def detect(self, productASIN):
+
+    def detect(self, product_ASIN):
         print("detect parent class")
 
 
 
-    def plot_axes(self, bins, subplots, method, productASIN):
+    def plot_axes(self, subplot = None):
         # Get unixReviewTimes and scores of all fake reviews
-        unix_review_times = self.fake_review_info["unixReviewTimes"]
-        scores = self.fake_review_info["scores"]
+        unix_review_times = self.fake_review_info["review_times"]
+        scores = self.fake_review_info["review_scores"]
 
         # Place these metrics into even bins of values
-        review_count, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=method, bins=self.bins)
+        review_count, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=self.method, bins=self.bins)
         review_count = review_count[np.isfinite(review_count)]
 
         # Get the timed intervals of each bin
@@ -46,35 +49,26 @@ class DetectionAlgorithms:
 
         # Create data frame that will be translated to a subplot
         graph_series = {"timestamp": bin_timestamps, "value": review_count}
-        graph_frame = pd.DataFrame(graph_frame)
+        self.graph_frame = pd.DataFrame(graph_series)
 
         # Graph the values (fake score x time intervals)
-        title = self.title + " Review Counts"
-        y_axis = "Number of Reviews"
-        x_axis = "Time"
+        title = self.graph_info['title'] 
+        y_axis = self.graph_info['y_axis'] 
+        x_axis = self.graph_info['x_axis'] 
 
-        dp = graph_frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplots["axis"])
-        dp.set_ylabel(y_axis)
-        dp.set_xlabel(x_axis)
-
-        return dp
+        if subplot != None:
+            dp = self.graph_frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplots["axis"])
+            dp.set_ylabel(y_axis)
+            dp.set_xlabel(x_axis)
+            return dp
 
 
 
 
     def compress_bins(self, review_count, bin_timestamps):
         # if number of initial bins exceeds review count and average rating bins, minimize bins length until it is equal in size of review count and average rating
-        i = j = 0
-        n = len(review_count)
-        while i < n:
-            if review_count[i] == 0:
-                del bin_timestamps[j]
-                i = i + 1
-            else:
-                j = j + 1
-                i = i + 1
-        del bin_timestamps[-1]
-
+        for i in range(len(review_count)-1, len(bin_timestamps)-1):
+            bin_timestamps.pop()
 
 
 
