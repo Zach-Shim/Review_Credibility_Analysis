@@ -47,17 +47,16 @@ def index(request):
     Parameters:
         (productASIN, objects you want to graph...)
 '''
-def plot(productASIN, duplicate, incentivized, anomaly):
-    print("plot graphs")
+def plot(productASIN, **kwargs):
     # create a graph
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(11, 7))
     fig.subplots_adjust(wspace=0.4)
     
-    duplicate.plot({"figure": fig, "axis": ax1}, productASIN)
-    incentivized.plot({"figure": fig, "axis": ax2}, productASIN)
-    anomaly.plot({"figure": fig, "axis": ax3}, productASIN)
+    kwargs[duplicate].plot(ax1, productASIN)
+    kwargs[incentivized].plot(ax2, productASIN)
+    kwargs[anomaly].plot([ax3, ax4], productASIN)
 
-    fig.show()
+    plt.show()
     fig.autofmt_xdate()
     fig_HTML = mpld3.fig_to_html(fig)
     return fig_HTML
@@ -67,23 +66,17 @@ def plot(productASIN, duplicate, incentivized, anomaly):
 # incentivizedReviews = Product.objects.filter(review__asin=productASIN).exclude(incentivizedRatio=0).count()
 def result(request, productID):
     # static
-    print("calculating similarity")
     duplicate = DetectionAlgorithms()
     duplicateRatio = duplicate.detect(productID)
 
     # Dynamic
     # Calculate Incentivized Ratio 
-    print("calculating incentivized")
     incentivized = DetectionAlgorithms()
-    incentivized.find_keywords()
     incentivizedRatio = incentivized.detect(productID)
 
     # Calculate Rating Anomaly Rate and Interval/range of review posting dates 
-    print("calculating anomaly")
     r_anomaly = DetectionAlgorithms()
-    r_scores = r_anomaly.detect(productID)
-    reviewAnomalyRate = r_scores[0]
-    ratingAnomalyRate = r_scores[1]
+    (reviewAnomalyRate, ratingAnomalyRate) = r_anomaly.detect(productID)
 
     # Create html product link
     link = ("https://www.amazon.com/dp/" + productID)
@@ -100,6 +93,8 @@ def result(request, productID):
         'link': link,
         'figure': figure,
     }
+
+    plot(productASIN, duplicate, incentivized, anomaly)
 
     # Render the HTML template index.html with the data in the context variable
     return render(request, 'result.html', context=context)

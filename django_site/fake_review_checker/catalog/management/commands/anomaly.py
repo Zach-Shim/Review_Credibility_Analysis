@@ -41,22 +41,15 @@ class Command(BaseCommand):
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):
         asin = kwargs['product_ASIN']
-        r_anomaly = Anomaly()
-        r_anomaly.detect(asin)     
-        series = []
+        r_anomaly = Anomaly()   
         print(r_anomaly.detect(asin))
 
-        '''
-        fig, ax1, ax2 = plt.subplots(ncols=2, figsize=(11, 7))
-        axes = (ax1, ax2)
+        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(11, 7))
         fig.subplots_adjust(wspace=0.4)
 
-        r_anomaly.plot({"figure": fig, "axis": axes[0]}, asin)
-        fig.show()
+        r_anomaly.plot([ax1, ax2], asin)
 
-        r_anomaly.plot({"figure": fig, "axis": axes[1]}, asin)
-        fig.show()
-        '''
+
 
 '''
     Description:
@@ -79,53 +72,56 @@ class Anomaly(DetectionAlgorithms):
 
     # returns reviews in bins of 30-day time series
     def detect(self, product_ASIN):
+        print("detect")
         self.set_bins(product_ASIN)
-        self.set_info()
-        if not self.empty_graph():
-            return
+        self.set_info(product_ASIN)
         return self.detect_helper(product_ASIN)
 
 
 
     def detect_helper(self, product_ASIN):
-        review_frame = self.detect_review_anomalies(product_ASIN)
-        rating_frame = self.detect_rating_anomalies(product_ASIN)
-        return [review_frame, rating_frame]
+        review_val = self.detect_review_anomalies(product_ASIN)
+        rating_val = self.detect_rating_anomalies(product_ASIN)
+        return [review_val, rating_val]
         
 
 
     def detect_review_anomalies(self, product_ASIN):
         # Calculate an even number of bins based on range of unix_review_times x months        
-        self.method = 'mean'
-        self.generate_frame('review_count_anomaly')
+        self.method = 'count'
+        self.series['review_anomaly'] = self.generate_frame()
         return self.calculate(product_ASIN)
 
 
 
     def detect_rating_anomalies(self, product_ASIN):
         # Calculate an even number of bins based on range of unixReviewTimes x months 
-        self.method = 'count'
-        self.generate_frame('rating_value_anomaly')
+        self.method = 'mean'
+        self.series['rating_anomaly'] = self.generate_frame()
         return self.calculate(product_ASIN)
 
 
 
     def plot(self, subplot, product_ASIN):
+        if self.empty_graph(product_ASIN):
+            return
+        
         axis1 = self.plot_review_anomalies(subplot[0])
         axis2 = self.plot_rating_anomalies(subplot[1])
+        plt.show()
         return [axis1, axis2]
 
 
-        
-    def plot_review_anomalies(self):
+
+    def plot_review_anomalies(self, subplot):
         self.graph_info = {"title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        return plot_axes(subplot)
+        return self.plot_axes(subplot, self.series['review_anomaly'])
 
 
 
     def plot_rating_anomalies(self, subplot):
         self.graph_info = {"title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"}
-        return plot_axes(subplot)
+        return self.plot_axes(subplot, self.series['rating_anomaly'])
 
 
 
@@ -135,7 +131,7 @@ class Anomaly(DetectionAlgorithms):
         if(self.method == 'mean'):
             # calculate anomalies in rating value distribution
             try:
-                self.review_count_anomalies = detect_ts(self.graph_frames['review_count_anomaly'], max_anoms=0.02, direction='both')
+                self.review_count_anomalies = detect_ts(self.series['review_anomaly'], max_anoms=0.02, direction='both')
             except:
                 self.review_count_anomalies['anoms']['anoms'] = []
             
@@ -147,7 +143,7 @@ class Anomaly(DetectionAlgorithms):
         if(self.method == 'count'):
             # calculate anomalies in review value distribution
             try:
-                self.rating_value_anomalies = detect_ts(self.graph_frames['rating_value_anomaly'], max_anoms=0.02, direction='both')
+                self.rating_value_anomalies = detect_ts(self.series['rating_anomaly'], max_anoms=0.02, direction='both')
             except:
                 self.rating_value_anomalies['anoms']['anoms'] = []
             
@@ -165,10 +161,4 @@ class Anomaly(DetectionAlgorithms):
         review_scores = [review['overall'] for review in reviews.values('overall').order_by('overall')]
         self.fake_review_info = {"review_times": review_times_int, "review_scores": review_scores}
 
-
-
-    def set_bins(self, product_ASIN):
-        reviews = Review.objects.filter(asin=product_ASIN)
-        self.bins = self.get_date_range(reviews)
-        return
 

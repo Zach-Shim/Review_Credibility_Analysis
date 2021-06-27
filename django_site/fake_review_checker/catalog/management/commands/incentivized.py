@@ -40,17 +40,11 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         asin = kwargs['product_ASIN']
         incentivized = Incentivized()
-        incentivized.find_keywords()
         incentivized.detect(asin)
         
-        '''
         fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
         fig.subplots_adjust(wspace=0.4)
-        plot = incentivized.plot({"figure": fig, "axis": ax1}, asin)
-        #plot.show()
-        #plot["figure"].show()
-        '''
-
+        incentivized.plot(ax1, asin)
 
 
 '''
@@ -67,9 +61,9 @@ class Incentivized(DetectionAlgorithms):
         self.words_re = ""
         self.completeKeyPhraseList = []
         self.antonyms = []
+        self.find_keywords()
 
-        self.incentivized_review_times = []
-        self.incentivized_scores = []
+        self.series = []
         
         # invoking the constructor of the parent class  
         method = 'count'
@@ -111,11 +105,14 @@ class Incentivized(DetectionAlgorithms):
     def _update_db(self, queries_to_update):
         print("\nPushing to database " + str(datetime.datetime.now()) + " start")
         for review in queries_to_update:
+            obj = Review.objects.filter(id=review).update(incentivized=1)
+            '''
             obj = Review.objects.filter(id=review).values('unixReviewTime', 'overall')
             print(obj)
             self.incentivized_review_times.append(obj[0]['unixReviewTime'])
             self.incentivized_scores.append(obj[0]['overall'])
             obj.update(incentivized=1)
+            '''
         print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
 
 
@@ -123,12 +120,14 @@ class Incentivized(DetectionAlgorithms):
     def plot(self, subplot, product_ASIN):
         # Get unixReviewTimes and scores of all fake reviews
         self.set_bins(product_ASIN)
-        self.set_info()
-        if not self.empty_graph():
+        self.set_info(product_ASIN)
+        if self.empty_graph(subplot):
             return
 
-        self.generate_frame('incentivized')
-        return self.plot_axes(subplot)
+        self.series = self.generate_frame()
+        self.plot_axes(subplot, self.series)
+        plt.show()
+        return 
 
 
 
@@ -143,15 +142,9 @@ class Incentivized(DetectionAlgorithms):
 
 
     def set_info(self, product_ASIN):
-        unixReviewTimes = []
+        unix_review_times = []
         scores = []
         for review in Review.objects.filter(asin=product_ASIN, incentivized=1):
-            unixReviewTimes.append(review.unixReviewTime)
+            unix_review_times.append(review.unixReviewTime)
             scores.append(review.overall)
-        self.fake_review_info = {"unixReviewTimes": unixReviewTimes, "scores": scores}
-
-
-
-    def set_bins(self, product_ASIN):
-        reviews = Review.objects.filter(asin=product_ASIN, incentivized=1)
-        return self.get_date_range(reviews)
+        self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}

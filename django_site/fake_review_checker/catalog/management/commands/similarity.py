@@ -33,16 +33,13 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):        
         similarity = Similarity()
         similarity.invert_index()
-        matching_keys = similarity.compare_all_hashes()
+        #matching_keys = similarity.compare_all_hashes()
 
-        '''
+        
         similarity.detect("B001LHVOVK")
-        similarity.calculate("B001LHVOVK")
         fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
         fig.subplots_adjust(wspace=0.4)
-        similarity.plot({"figure": fig, "axis": ax1}, "B001LHVOVK")
-        fig.show()
-        '''
+        similarity.plot(ax1, "B001LHVOVK")
 
 
 
@@ -54,8 +51,7 @@ class Similarity(DetectionAlgorithms):
         self.num_of_hashes = 105
 
         # plotting info
-        self.duplicate_review_times = []
-        self.duplicate_scores = []
+        self.series = []
 
         # inverted index
         self.dictList = [dict() for x in range(self.num_of_hashes)]
@@ -132,11 +128,14 @@ class Similarity(DetectionAlgorithms):
     def _update_db(self, queries_to_update):
         print("\nPushing to database " + str(datetime.datetime.now()) + " start")
         for review in queries_to_update:
+            obj = Review.objects.filter(id=review).update(duplicate=1)
+            '''
             obj = Review.objects.filter(id=review).values('unixReviewTime', 'overall')
             print(obj)
             self.duplicate_review_times.append(obj[0]['unixReviewTime'])
             self.duplicate_scores.append(obj[0]['overall'])
             obj.update(duplicate=1)
+            '''
         print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
 
 
@@ -146,15 +145,17 @@ class Similarity(DetectionAlgorithms):
 
 
 
-    def plot(self, subplot, method, product_ASIN):
+    def plot(self, subplot, product_ASIN):
         # Get unixReviewTimes and scores of all fake reviews
         self.set_bins(product_ASIN)
-        self.set_info()
-        if not self.empty_graph():
+        self.set_info(product_ASIN)
+        if self.empty_graph(subplot):
             return
 
-        self.generate_frame('similarity')
-        return self.plot_axes(self.bins, subplot)
+        self.series = self.generate_frame()
+        self.plot_axes(subplot, self.series)
+        plt.show()
+        return
 
 
 
@@ -167,15 +168,12 @@ class Similarity(DetectionAlgorithms):
         return dup_score
 
 
-
     # retrieve the information of all duplicate reviews for a given asin 
     # method used by views.py - plot()
-    def set_info(self):
-        self.fake_review_info = {"review_times": duplicate_review_times, "scores": duplicate_scores}
-
-
-
-    # Calculate an even number of bins based on range of unixReviewTimes x months
-    def set_bins(self, product_ASIN):
-        reviews = Review.objects.filter(asin=product_ASIN, duplicate=1)
-        return self.get_date_range(reviews)
+    def set_info(self, product_ASIN):
+        unix_review_times = []
+        scores = []
+        for review in Review.objects.filter(asin=product_ASIN, duplicate=1):
+            unix_review_times.append(review.unixReviewTime)
+            scores.append(review.overall)
+        self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}

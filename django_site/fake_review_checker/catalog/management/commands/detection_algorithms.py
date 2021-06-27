@@ -1,6 +1,7 @@
 # Python Imports
 import datetime
 import numpy as np
+import matplotlib.pyplot as plt, mpld3
 import matplotlib
 matplotlib.use("TkAgg")
 import math
@@ -20,13 +21,11 @@ class DetectionAlgorithms:
     
     def __init__(self, method = None, graph_info = None):
         self.fake_review_info = dict()
-
+        self.bins = []
+        
         self.method = method
         self.graph_info = graph_info
 
-        self.graph_frames = dict()
-        self.bins = []
-        
 
 
     def detect(self, product_ASIN):
@@ -34,7 +33,8 @@ class DetectionAlgorithms:
 
 
 
-    def generate_frame(self, algorithm):
+    def generate_frame(self):
+        print("generating frame")
         # Get unixReviewTimes and scores of all fake reviews
         unix_review_times = self.fake_review_info["review_times"]
         scores = self.fake_review_info["review_scores"]
@@ -49,44 +49,42 @@ class DetectionAlgorithms:
 
         # Create data frame that will be translated to a subplot
         graph_series = {"timestamp": bin_timestamps, "value": review_count}
-        self.graph_frames[algorithm] = pd.DataFrame(graph_series)
+        graph_frame = pd.DataFrame(graph_series)
+        return graph_frame
 
 
-
-    def plot_axes(self, subplot):
+    def plot_axes(self, subplot, frame):
         # Graph the values (fake score x time intervals)
         title = self.graph_info['title'] 
         y_axis = self.graph_info['y_axis'] 
         x_axis = self.graph_info['x_axis'] 
 
-        for frame in self.graph_frames:
-            dp = frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplots["axis"])
-            dp.set_ylabel(y_axis)
-            dp.set_xlabel(x_axis)
-            return dp
+        print("current frame:")
+        print(frame)
+        dp = frame.plot(x='timestamp', y='value', title=self.graph_info['title'], kind='line', ax=subplot)
+        dp.set_ylabel(y_axis)
+        dp.set_xlabel(x_axis)
 
 
 
-    def empty_graph(self):
+    def empty_graph(self, subplot):
         unix_review_times = self.fake_review_info["review_times"]
         scores = self.fake_review_info["review_scores"]
 
         # error checking for empty graph
         if (len(unix_review_times) == 0 or len(scores) == 0):
-            subplot["figure"].delaxes(subplot["axis"])
-            return
+            plt.delaxes(subplot)
+            return True
+        
+        return False
 
 
 
     def compress_bins(self, review_count, bin_timestamps):
         # if number of initial bins exceeds review count and average rating bins, minimize bins length until it is equal in size of review count and average rating
-        for i in range(len(review_count)-1, len(bin_timestamps)-1):
-            bin_timestamps.pop()
-
-
-
-    def set_info(self, product_ASIN):
-        print("getInfo parent class")
+        if(len(bin_timestamps) > len(review_count)):
+            for i in range(len(review_count)-1, len(bin_timestamps)-1):
+                bin_timestamps.pop()
 
 
 
@@ -95,23 +93,25 @@ class DetectionAlgorithms:
 
 
 
-    def get_bins(self, product_ASIN):
-        print("getBins parent class")
+    def set_info(self, product_ASIN):
+        print("getInfo parent class")
 
 
 
-    def get_date_range(self, reviews):
+    def set_bins(self, product_ASIN):
+        reviews = Review.objects.filter(asin=product_ASIN)
+
         # get posting date range (earliest post - most recent post)
         most_recent_date = reviews.aggregate(Min('unixReviewTime'))
         farthest_date = reviews.aggregate(Max('unixReviewTime'))
         review_range = datetime.datetime.fromtimestamp(farthest_date['unixReviewTime__max']) - datetime.datetime.fromtimestamp(most_recent_date['unixReviewTime__min'])
-        
+
         # calculate review range
         review_day_range = review_range.days
         bucket_count = math.ceil(review_range.days / 30)
         print("Product has reviews ranging " + str(review_day_range) + " days. Bucket count " + str(bucket_count))
         
         # Returns num evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
-        bins = np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
-        return bins
+        self.bins = np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
+       
     
