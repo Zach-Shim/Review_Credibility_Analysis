@@ -8,7 +8,7 @@
 	    <aside>
 		    <nav>  
 			    <ul>
-				    <li><a href= {{ link }} target="_blank">Open in Amazon</a>
+				    <li><a href= 
 			    </ul>
 		    </nav>
 	    </aside>
@@ -19,79 +19,44 @@
         <br><br>
     </section>
 
-    <section align="center">
-        <div>Count
-            <br><br><br>
-            <strong> {{ reviewsForProduct }} reviews </strong>
-        </div>
-        <div>Time Range
-            <br><br><br>
-            <strong> {{ reviewDayRange }} days </strong>
-        </div>
-        <div>Anomalies
-            <br><br>
-            <strong>
-                <font color="green">rating value {{ ratingAnomalyRate }}</font><br>
-                <font color="green">review count {{ reviewAnomalyRate }}</font><br>
-            </strong>
-        </div>
-        <div>Incentivised
-            <br><br><br>
-            <strong>
-                <font color="green"> {{ incentivizedRatio }} reviews</font>
-            </strong>
-        </div>
-        <div>Duplicate
-            <br><br><br>
-            <strong>
-                <font color="green"> {{ duplicateRatio }} reviews</font>
-            </strong>
-        </div>
-        <div class ="credibility">Credibility
-            <br><br>
-            <img src="red.png" height ="50" width ="50">
-        </div>
-
-    </section>
-    
-    <section>
-        <table>
-            <tr>
-                <th>Methodology</th>
-                <th> {{ category }}</th>
-                <th> {{ product_ASIN }}</th>
-            </tr>
-            <tr>
-                <td>Rating Value Anomaly</td>
-                <td> total category rate </td>
-                <td> {{ ratingAnomalyRate }} </td>
-            </tr>
-            <tr>
-                <td>Review Count Anomaly</td>
-                <td> total category rate </td>
-                <td> {{ reviewAnomalyRate }} </td>
-            </tr>
-            <tr>
-                <td>Incentivized Reviews</td>
-                <td> total category rate </td>
-                <td> {{ incentivizedRatio }}</td>
-            </tr>
-            <tr>
-                <td>Duplicate Reviews</td>
-                <td> total category rate </td>
-                <td> {{ duplicateRatio }}</td>
-            </tr>    
-    </section>
 
 	<section id="pageContent">
-		<main role="main">
-            <img src="data:image/png;base64, {{ figure|safe }}">
-        </main>
+		<main role="main"></main>
     </section>
-
     <footer>
         <p></p>
     </footer>
-    
 </body>
 </html>   
+
+
+    <section align=\"center\">
+        <div>
+            <h1>Count</h1>
+            <br><br><br>
+            <strong> {{ reviewsForProduct }} reviews </strong>
+        </div>
+    
+
+        <div>
+            <h1>Time Range</h1>
+            <br><br><br>
+            <strong> {{ reviewRange }} days </strong>
+        </div>
+    </section>
+
+    {% if ratingValueAnamolies == 0 %}
+        <font color=\"green\">0 rating value</font><br>
+    {% elif ratingValueAnamolies == 1 %}
+        <font color=\"orange\">rating values</font><br>
+    {% elif ratingValueAnamolies > 1 %}
+        <font color=\"red\">rating values</font><br>
+    {% endif %}
+
+    {% if ratingCountAnamolies == 0 %}
+        <font color=\"green\">0 review count</font>
+    {% elif ratingCountAnamolies == 1 %}
+        <font color=\"orange\">review count</font>
+    {% elif ratingCountAnamolies > 1 %}
+        <font color=\"red\">review count</font>
+    {% endif %}

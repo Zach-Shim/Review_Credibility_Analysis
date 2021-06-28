@@ -32,147 +32,140 @@ class Command(BaseCommand):
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):        
         similarity = Similarity()
-        similarity.invert_index()
-        #matching_keys = similarity.compare_all_hashes()
+        similarity.InvertedIndex()
+        matchingKeys = similarity.CompareAllHashes()
 
-        
         similarity.detect("B001LHVOVK")
+        similarity.calculate("B001LHVOVK")
         fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
         fig.subplots_adjust(wspace=0.4)
-        similarity.plot(ax1, "B001LHVOVK")
+        similarity.plot({"figure": fig, "axis": ax1}, "B001LHVOVK")
+        fig.show()
 
 
 
 # Calculates the similarity score for a given Product's Reviews
-class Similarity(DetectionAlgorithms):
+class Similarity():
 
     def __init__(self):
-        # For each of the 'num_of_hashes' hash functions, generate a different coefficient 'a' and 'b'.
-        self.num_of_hashes = 105
-
-        # plotting info
-        self.series = []
+        # For each of the 'numHashes' hash functions, generate a different coefficient 'a' and 'b'.
+        self.numHashes = 105
+        self.reviewCount = 1
+        self.duplicateInfo = dict()
 
         # inverted index
-        self.dictList = [dict() for x in range(self.num_of_hashes)]
+        self.dictList = [dict() for x in range(self.numHashes)]
 
         # compare hashes
         self.threshold = 0.3
 
         # invoking the constructor of the parent class  
-        graph_info = {"method": "count", "title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        super(Similarity, self).__init__(graph_info)  
-
-
+        #super(Incentivized, self).__init__()  
 
     # store bigram numHash {index: bigram: review} in dictionary for efficiency
-    def invert_index(self):
-        review_count = 0
-        for review in Review.objects.values('id', 'minHash'):
-            bigram_hash = review['minHash'].split(",")
-            for i in range(0, self.num_of_hashes):
+    def InvertedIndex(self):
+        for review in Review.objects.all():
+            bigram_hash = review.minHash.split(",")
+            for i in range(0, self.numHashes):
                 key = int(bigram_hash[i])
                 self.dictList[i].setdefault(key, [])
-                self.dictList[i][key].append(review['id'])         # all reviews that share this key(bigram) are appended to the list
-            review_count += 1
-            if review_count % 10000 == 0:
-                print("\nLoading " + str(datetime.datetime.now()) + " " + str(review_count))
-                if review_count > 10000 * 1000:
+                self.dictList[i][key].append(review)         # all reviews that share this key(bigram) are appended to the list
+            self.reviewCount += 1
+            if self.reviewCount % 10000 == 0:
+                print("\nLoading " + str(datetime.datetime.now()) + " " + str(self.reviewCount))
+                if self.reviewCount > 10000 * 1000:
                     break
 
 
     # compares each review's bigram hashes against other review's bigram hashses (takes the cross section)
-    def compare_all_hashes(self):
+    def CompareAllHashes(self):
         review_num = 1
-        queries_to_update = []
-        for review in Review.objects.values('id', 'minHash'):
-            if review_num % 1000 == 0:
+        for review in Review.objects.all():
+            if review_num % 500 == 0:
                 print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num))
 
             # For the current review, find that number of other reviews that have the same bigrams; every bigram should already be indexed in dictList, holding what reviews have it
-            matching_keys = dict()
-            signature = review['minHash'].split(",")
-            for j in range(0, self.num_of_hashes):
+            matchingKeys = dict()
+            signature = review.minHash.split(",")
+            for j in range(0, self.numHashes):
 
                 # for each review that has this bigram hash, add 1 to their matching key index
                 reviews = self.dictList[j][int(signature[j])]
                 for r in reviews:
-                    matching_keys[r] = matching_keys.get(r, 0) + 1
+                    matchingKeys[r] = matchingKeys.get(r, 0) + 1
 
                 # output checks
                 if len(reviews) > 10000:
                     #print("Hash " + str(j) + " has " + str(len(reviews)) + " matches for product " + str(review_num))
                     continue
 
-            #print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num) + " has " + str(len(matching_keys)) + "product matches")
+            #print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num) + " has " + str(len(matchingKeys)) + "product matches")
 
-            sorted_matched_keys = sorted(matching_keys.items(), key=operator.itemgetter(1), reverse=True)
-            for x in sorted_matched_keys:
+            sortedMatchKeys = sorted(matchingKeys.items(), key=operator.itemgetter(1), reverse=True)
+            for x in sortedMatchKeys:
                 #print ("Max hash matches for " + str(review_num) + " is " + str(x[1]))
-                estJ = (x[1] / self.num_of_hashes)
-                if x[0] == review['id']:
+                estJ = (x[1] / self.numHashes)
+                if x[0] == review:
                     continue
                 if estJ > self.threshold:
-                    queries_to_update.append(x[0])
+                    # duplicate is a bool, so updating to 1 means we are marking this review as a duplicate
+                    self.duplicateInfo[review.asin] = [x[0].asin]
+                    Review.objects.filter(asin=x[0].asin, reviewerID=x[0].reviewerID).update(duplicate=1)     
                 else:
                     break
             review_num += 1
-        print("\nMatching " + str(datetime.datetime.now()) + " finished")
-
-        self._update_db(queries_to_update)
 
 
 
-    # accepts a list of review id's to update
-    def _update_db(self, queries_to_update):
-        print("\nPushing to database " + str(datetime.datetime.now()) + " start")
-        for review in queries_to_update:
-            obj = Review.objects.filter(id=review).update(duplicate=1)
-            '''
-            obj = Review.objects.filter(id=review).values('unixReviewTime', 'overall')
-            print(obj)
-            self.duplicate_review_times.append(obj[0]['unixReviewTime'])
-            self.duplicate_scores.append(obj[0]['overall'])
-            obj.update(duplicate=1)
-            '''
-        print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
+    def detect(self, productASIN):
+        return getInfo(productASIN)
 
 
 
-    def detect(self, product_ASIN):
-        return self.calculate(product_ASIN)
-
-
-
-    def plot(self, subplot, product_ASIN):
+    def plot(self, subplot, method, productASIN):
         # Get unixReviewTimes and scores of all fake reviews
-        self.set_bins(product_ASIN)
-        self.set_info(product_ASIN)
-        if self.empty_graph(subplot):
+        info = self.getInfo(productASIN)
+        unixReviewTimes = info["unixReviewTimes"]
+        scores = info["scores"]
+
+        # error checking for empty graph
+        if (len(unixReviewTimes) == 0 or len(scores) == 0):
+            subplot["figure"].delaxes(subplot["axis"])
             return
 
-        self.series = self.generate_frame()
-        self.plot_frame(subplot, self.series)
-        plt.show()
-        return
+        # Calculate an even number of bins based on range of unixReviewTimes x months
+        self.bins = self.getBins(productASIN)
+        self.fakeReviewInfo = info
 
-
-
-    # calculates the duplicateRatio = (number of duplicate reviews for a given asin) / (total reviews for a given asin)
-    def calculate(self, product_ASIN):
-        duplicates = Review.objects.filter(asin=product_ASIN, duplicate=1).count()
-        total_reviews = Review.objects.filter(asin=product_ASIN).count()
-        dup_score = round(duplicates / total_reviews * 100, 2)
-        Product.objects.filter(asin=product_ASIN).update(duplicateRatio=dup_score)
-        return dup_score
+        self.method = 'count'
+        self.graphInfo = {"title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        return self.plotAxis(self.bins, subplot, productASIN)
 
 
     # retrieve the information of all duplicate reviews for a given asin 
     # method used by views.py - plot()
-    def set_info(self, product_ASIN):
-        unix_review_times = []
-        scores = []
-        for review in Review.objects.filter(asin=product_ASIN, duplicate=1):
-            unix_review_times.append(review.unixReviewTime)
-            scores.append(review.overall)
-        self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}
+    def getInfo(self, productASIN):
+        duplicateTimeInts = []
+        duplicateScores = []
+
+        for review in Review.objects.filter(asin=productASIN, duplicate=1):
+            duplicateTimeInts.append(review.unixReviewTime)
+            duplicateScores.append(review.overall)
+
+        return {"duplicateTimeInts": duplicateTimeInts, "duplicateScores": duplicateScores}
+
+
+
+    # calculates the duplicateRatio = (number of duplicate reviews for a given asin) / (total reviews for a given asin)
+    def calculate(self, productASIN):
+        duplicates = Review.objects.filter(asin=productASIN, duplicate=1).count()
+        totalReviews = Review.objects.filter(asin=productASIN).count()
+        duplicateScore = round(duplicates / totalReviews * 100, 2)
+        Product.objects.filter(asin=productASIN).update(duplicateRatio=duplicateScore)
+        return duplicateScore
+
+
+
+    def getBins(self, productASIN):
+        reviews = Review.objects.filter(asin=productASIN, duplicate=1)
+        return self.getDateRange(reviews)
