@@ -60,9 +60,8 @@ class Similarity(DetectionAlgorithms):
         self.threshold = 0.3
 
         # invoking the constructor of the parent class  
-        method = 'count'
-        graph_info = {"title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        super(Similarity, self).__init__(method, graph_info)  
+        graph_info = {"method": "count", "title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        super(Similarity, self).__init__(graph_info)  
 
 
 
@@ -153,7 +152,7 @@ class Similarity(DetectionAlgorithms):
             return
 
         self.series = self.generate_frame()
-        self.plot_axes(subplot, self.series)
+        self.plot_frame(subplot, self.series)
         plt.show()
         return
 

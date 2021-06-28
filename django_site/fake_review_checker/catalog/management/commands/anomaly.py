@@ -88,7 +88,7 @@ class Anomaly(DetectionAlgorithms):
 
     def detect_review_anomalies(self, product_ASIN):
         # Calculate an even number of bins based on range of unix_review_times x months        
-        self.method = 'count'
+        self.graph_info = {"method": "count", "title": "Review Count Anomalies"}
         self.series['review_anomaly'] = self.generate_frame()
         return self.calculate(product_ASIN)
 
@@ -96,7 +96,7 @@ class Anomaly(DetectionAlgorithms):
 
     def detect_rating_anomalies(self, product_ASIN):
         # Calculate an even number of bins based on range of unixReviewTimes x months 
-        self.method = 'mean'
+        self.graph_info = {"method": "mean", "title": "Average Rating Anomalies"}
         self.series['rating_anomaly'] = self.generate_frame()
         return self.calculate(product_ASIN)
 
@@ -106,29 +106,19 @@ class Anomaly(DetectionAlgorithms):
         if self.empty_graph(product_ASIN):
             return
         
-        axis1 = self.plot_review_anomalies(subplot[0])
-        axis2 = self.plot_rating_anomalies(subplot[1])
+        self.graph_info.update({"title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"})
+        axis1 = self.plot_frame(subplot[0], self.series['review_anomaly'])
+        self.graph_info.update({"title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"})
+        axis2 = self.plot_frame(subplot[1], self.series['rating_anomaly'])
         plt.show()
         return [axis1, axis2]
-
-
-
-    def plot_review_anomalies(self, subplot):
-        self.graph_info = {"title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        return self.plot_axes(subplot, self.series['review_anomaly'])
-
-
-
-    def plot_rating_anomalies(self, subplot):
-        self.graph_info = {"title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"}
-        return self.plot_axes(subplot, self.series['rating_anomaly'])
 
 
 
     def calculate(self, product_ASIN):
         total_reviews = Review.objects.filter(asin=product_ASIN).count()
 
-        if(self.method == 'mean'):
+        if(self.graph_info['method'] == 'count'):
             # calculate anomalies in rating value distribution
             try:
                 self.review_count_anomalies = detect_ts(self.series['review_anomaly'], max_anoms=0.02, direction='both')
@@ -140,7 +130,7 @@ class Anomaly(DetectionAlgorithms):
             Product.objects.filter(asin=product_ASIN).update(reviewAnomalyRate=review_anomaly_score)
             return review_anomaly_score
 
-        if(self.method == 'count'):
+        if(self.graph_info['method'] == 'mean'):
             # calculate anomalies in review value distribution
             try:
                 self.rating_value_anomalies = detect_ts(self.series['rating_anomaly'], max_anoms=0.02, direction='both')
@@ -158,7 +148,27 @@ class Anomaly(DetectionAlgorithms):
         # query sets of review data for histogram bins
         reviews = Review.objects.filter(asin=product_ASIN)
         review_times_int = [review['unixReviewTime'] for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
-        review_scores = [review['overall'] for review in reviews.values('overall').order_by('overall')]
+        review_scores = [review['overall'] for review in reviews.values('overall').order_by('unixReviewTime')]
         self.fake_review_info = {"review_times": review_times_int, "review_scores": review_scores}
 
 
+
+    def get_rating_color(self):
+        num_of_anoms = len(self.rating_value_anomalies['anoms']['anoms'])
+        return check_length(num_of_anoms)
+
+
+
+    def get_review_color(self):
+        num_of_anoms = len(self.review_count_anomalies['anoms']['anoms'])
+        return check_length(num_of_anoms)
+    
+
+
+    def check_length(self, num_of_anoms):
+        if num_of_anoms == 0:
+            return "green"
+        elif num_of_anoms == 1:
+            return "orange"
+        elif num_of_anoms > 1:
+            return "red"

@@ -66,9 +66,8 @@ class Incentivized(DetectionAlgorithms):
         self.series = []
         
         # invoking the constructor of the parent class  
-        method = 'count'
-        graph_info = {"title": "Incentivized Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        super(Incentivized, self).__init__(method, graph_info)  
+        graph_info = {"method": "count", "title": "Incentivized Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        super(Incentivized, self).__init__(graph_info)  
 
 
 
@@ -125,7 +124,7 @@ class Incentivized(DetectionAlgorithms):
             return
 
         self.series = self.generate_frame()
-        self.plot_axes(subplot, self.series)
+        self.plot_frame(subplot, self.series)
         plt.show()
         return 
 

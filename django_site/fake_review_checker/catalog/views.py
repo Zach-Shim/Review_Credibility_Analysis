@@ -48,6 +48,7 @@ def index(request):
 
 
 
+#def get_color()
 
 '''
     Parameters:
@@ -89,12 +90,16 @@ def result(request, product_ASIN):
     # Calculate Rating Anomaly Rate and Interval/range of review posting dates 
     anomaly = Anomaly()
     (reviewAnomalyRate, ratingAnomalyRate) = anomaly.detect(product_ASIN)
+    reviewDayRange = anomaly.get_day_range()
+    #ratingAnomColor = anomaly.get_rating_color()
+    #reviewAnomColor = anomaly.get_review_color()
 
     # Create html product link
     link = ("https://www.amazon.com/dp/" + product_ASIN)
 
-    # Calculate Number of Reviews for Given Product
-    reviewsForProduct = Review.objects.all().filter(asin=product_ASIN).count()
+    # Calculate Number of Reviews and Date Range for Given Product
+    reviewsForProduct = Review.objects.filter(asin=product_ASIN).count()
+    category = Product.objects.filter(asin=product_ASIN).values('category')
 
     figure = plot(product_ASIN, duplicate, incentivized, anomaly)
 
@@ -105,6 +110,8 @@ def result(request, product_ASIN):
         'ratingAnomalyRate': ratingAnomalyRate,
         'reviewAnomalyRate': reviewAnomalyRate,
         'reviewsForProduct': reviewsForProduct,
+        'reviewDayRange': reviewDayRange,
+        'category': category,
         'link': link,
         'figure': figure,
     }
