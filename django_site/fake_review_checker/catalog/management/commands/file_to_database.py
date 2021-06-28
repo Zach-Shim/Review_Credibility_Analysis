@@ -64,7 +64,8 @@ class FileToDatabase():
 
             # push the data frame to the database
             u_conn = self.json_to_database(table_name, df)
-            
+    
+    # creator component
     def _get_serializer(self, table_name):           
         if table_name == "user":
             return self._serialize_to_user
