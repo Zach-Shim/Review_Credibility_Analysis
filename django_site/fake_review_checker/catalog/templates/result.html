@@ -7,7 +7,92 @@
 {% block content %}
     <h1>Results Page</h1>
     <p>The following results were calculated for product: </p>
-    {% autoescape off %}
-    <div> {{ figure|safe }} </div>
-    {% endautoescape %}
+	<section>
+	    <aside>
+		    <nav>  
+			    <ul>
+				    <li><a href= {{ link }} target="_blank">Open in Amazon</a>
+			    </ul>
+		    </nav>
+	    </aside>
+    </section>
+
+    <section>
+        <strong> Credibility analysis report for ASIN <strong> {{ currentAsin }} </strong> 
+        <br><br>
+    </section>
+
+    <section align="center">
+        <div>Count
+            <br><br><br>
+            <strong> {{ reviewsForProduct }} reviews </strong>
+        </div>
+        <div>Time Range
+            <br><br><br>
+            <strong> {{ reviewDayRange }} days </strong>
+        </div>
+        <div>Anomalies
+            <br><br>
+            <strong>
+                <font color="green">rating value {{ ratingAnomalyRate }}</font><br>
+                <font color="green">review count {{ reviewAnomalyRate }}</font><br>
+            </strong>
+        </div>
+        <div>Incentivised
+            <br><br><br>
+            <strong>
+                <font color="green"> {{ incentivizedRatio }} reviews</font>
+            </strong>
+        </div>
+        <div>Duplicate
+            <br><br><br>
+            <strong>
+                <font color="green"> {{ duplicateRatio }} reviews</font>
+            </strong>
+        </div>
+        <div class ="credibility">Credibility
+            <br><br>
+            <img src="red.png" height ="50" width ="50">
+        </div>
+
+    </section>
+    
+    <section>
+        <table>
+            <tr>
+                <th>Methodology</th>
+                <th> {{ category }}</th>
+                <th> {{ product_ASIN }}</th>
+            </tr>
+            <tr>
+                <td>Rating Value Anomaly</td>
+                <td> total category rate </td>
+                <td> {{ ratingAnomalyRate }} </td>
+            </tr>
+            <tr>
+                <td>Review Count Anomaly</td>
+                <td> total category rate </td>
+                <td> {{ reviewAnomalyRate }} </td>
+            </tr>
+            <tr>
+                <td>Incentivized Reviews</td>
+                <td> total category rate </td>
+                <td> {{ incentivizedRatio }}</td>
+            </tr>
+            <tr>
+                <td>Duplicate Reviews</td>
+                <td> total category rate </td>
+                <td> {{ duplicateRatio }}</td>
+            </tr>    
+    </section>
+
+	<section id="pageContent">
+		<main role="main">
+            <img src="data:image/png;base64, {{ figure|safe }}">
+        </main>
+    </section>
+
+    <footer>
+        <p></p>
+    </footer>
 {% endblock %}
