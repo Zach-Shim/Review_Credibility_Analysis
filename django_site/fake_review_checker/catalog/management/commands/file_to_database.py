@@ -23,9 +23,9 @@ __json_location__ = __current_dir__[:-20] + "/datasets/"
 __db_location__ = __current_dir__[:-28] + "/db.sqlite3"
 
 # Global Model Schema Variables
-review_columns = ["reviewerID", "asin", "reviewID", "reviewText", "overall", "unixReviewTime", "minHash", "duplicate"]
 user_columns = ["reviewerID", "reviewerName"]
 product_columns = ["asin", "category", "duplicateRatio", "incentivizedRatio", "ratingAnomalyRate", "reviewAnomalyRate"]
+review_columns = ["reviewText", "overall", "unixReviewTime", "minHash", "asin", "reviewerID", "duplicate", "incentivized"]
 
 
 
@@ -37,84 +37,73 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         table = kwargs['table_name']
-        self.function_factory(table)
-
-    def function_factory(self, table_name):
         ftd = FileToDatabase()
-        
-        # connect to sqlite database and update dictionary with json_file_name:db_file_connection
-        conn = sqlite3.connect(__db_location__)
-        
-        # parse through every file name in directory 5_core
-        entries = os.scandir(__json_location__)
-        for entry in entries:
-            print(entry.name)
-            df = read_json(__json_location__ + entry.name, lines = True)        # Create A DataFrame From the JSON Data   
-            if(entry.name == '.DS_Store'):
-                continue
-            if(table_name == "user"):
-                # only keep the columns we need according to the schema in user_columns
-                df = df[user_columns]
+        ftd.serialize(table)
 
-                # fill in extra attributes not present in json files 
-                df.drop_duplicates(subset=["reviewerID"], inplace=True) 
-                df.fillna(value="", inplace=True)
-                
-                # push the data frame to the database
-                u_conn = ftd.json_to_database("user", df)
-            elif(table_name == "product"):
-                # fill in extra attributes not present in json files 
-                df["category"] = entry.name[:-7]
-                df["duplicateRatio"] = 0.0
-                df["incentivizedRatio"] = 0.0
-                df["ratingAnomalyRate"] = 0.0
-                df["reviewAnomalyRate"] = 0.0
-                df = df[product_columns]
-                df.drop_duplicates(subset=["asin"], inplace=True) 
-                
-                # push the data frame to the database
-                p_conn = ftd.json_to_database("product", df)   
-            elif(table_name == "review"):
-                # fill in extra attributes not present in json files 
-                ftd.add_id(df)
-                df["minHash"] = ""
-                df["duplicate"] = 0
-                df = df[review_columns]
-                r_conn = ftd.json_to_database("review", df)
-
-            else:
-                raise ValueError("Please enter the name of an existing table in the db.sqlite3 database")
 
 
 
 class FileToDatabase():
 
     def __init__(self):
-        self.data = dict()
+        self.entry_name = ""
 
-    '''
-        Description: 
-            Converts a json file to a pandas dataframe
-            The Review entity is a weak-entity type. It's parents are User and Product
-            add_id() gives each Review a unique review_id depending on what Product a User is writing a Review for
-        Parameters:
-        Returns:
-            Dataframe containing json file data
-    '''
-    def add_id(self, df):
-        
+    def serialize(self, table_name):
+        # parse through every file name in directory 5_core
         entries = os.scandir(__json_location__)
+
         for entry in entries:
-            for index, row in df.iterrows():
-                unique = str(row['reviewerID'] + ', ' + row['asin'])
-                if unique in self.data:
-                    max_val = max(self.data.items(), key=operator.itemgetter(1))[0]
-                    self.data[unique] = self.data[max_val] + 1
-                    df.at[index, "reviewID"] = self.data[max_val]
-                else:
-                    self.data[unique] = 1
-                    df.at[index, "reviewID"] = 1
-        print(df)
+            self.entry_name = entry.name
+            print("Process file: " + str(self.entry_name))  
+            if entry.name == '.DS_Store':
+                continue
+
+            df = read_json(__json_location__ + entry.name, lines = True)        # Create A DataFrame From the JSON Data   
+            serializer = self._get_serializer(table_name)
+            df = serializer(df)
+
+            # push the data frame to the database
+            u_conn = self.json_to_database(table_name, df)
+    
+    # creator component
+    def _get_serializer(self, table_name):           
+        if table_name == "user":
+            return self._serialize_to_user
+        elif table_name == "product":
+            return self._serialize_to_product
+        elif table_name == "review" :
+            return self._serialize_to_review
+        else:
+            raise ValueError("Please enter the name of an existing table in the db.sqlite3 database")
+
+    # serliazes user categories (updates old json format with new attributes needed for the db)
+    def _serialize_to_user(self, df):
+        # only keep the columns we need according to the schema in user_columns; fill in extra attributes not present in json files 
+        df = df[user_columns]
+        df.drop_duplicates(subset=["reviewerID"], inplace=True) 
+        df.fillna(value="", inplace=True)
+        return df
+    
+    # serliazes product categories (updates old json format with new attributes needed for the db)
+    def _serialize_to_product(self, df):
+        # fill in extra attributes not present in json files 
+        df["category"] = self.entry_name[:-7]
+        df["duplicateRatio"] = 0.0
+        df["incentivizedRatio"] = 0.0
+        df["ratingAnomalyRate"] = 0.0
+        df["reviewAnomalyRate"] = 0.0
+        df = df[product_columns]
+        df.drop_duplicates(subset=["asin"], inplace=True)
+        return df
+
+    # serliazes review categories (updates old json format with new attributes needed for the db
+    def _serialize_to_review(self, df):
+        # fill in extra attributes not present in json files 
+        df["minHash"] = ""
+        df["duplicate"] = 0
+        df["incentivized"] = 0
+        df = df[review_columns]
+        return df
 
     '''
     Description:
@@ -126,7 +115,7 @@ class FileToDatabase():
     '''
     def json_to_database(self, table_name, df):    
         # Export data frame to sqlite database
-        print("Data Framee:")
+        print("Data Frame:")
         print(df)
         print("DB Location:")
         print(__db_location__)

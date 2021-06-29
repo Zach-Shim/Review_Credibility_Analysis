@@ -75,25 +75,25 @@ class Review(models.Model):
     asin = models.ForeignKey(Product, on_delete = models.CASCADE, db_column = "asin")
 
     # attributes
-    reviewID = models.IntegerField(default=0)
     reviewText = models.TextField()
     overall = models.IntegerField(choices = ((1, 1), (2, 2), (3, 3), (4, 4), (5, 5)))
     unixReviewTime = models.IntegerField()
     minHash = models.TextField(default="")
     duplicate = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
+    incentivized = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
 
     # Metadata
     class Meta:
         db_table = 'review'
         constraints = [
-            models.UniqueConstraint(fields=['reviewID', 'reviewerID', 'asin'], name='unique_review'),
+            models.UniqueConstraint(fields=['reviewerID', 'asin'], name='unique_review'),
         ]
 
     # Methods
     def get_absolute_url(self):
         """Returns the url to access a particular instance of MyModelName."""
-        return reverse('model-detail-view', args=[str(self.reviewID)])
+        return reverse('model-detail-view', args=[str(self.id)])
 
     def __str__(self):
         """String for representing the MyModelName object (in Admin site etc.)."""
-        return "Review " + self.reviewID
+        return "Review " + str(self.id)

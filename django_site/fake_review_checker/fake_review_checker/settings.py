@@ -120,6 +120,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+STATICFILES_DIRS = (
+    "/Users/zshim/Desktop/Projects/Fake_Review_Checker/django_site/fake_review_checker/catalog/static/catalog/",
+)
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 

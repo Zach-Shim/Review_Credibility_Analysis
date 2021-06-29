@@ -1,12 +1,10 @@
 {% extends "base.html" %}
 
-{% load static %}
-<link rel="stylesheet" href="{% static 'css/style.css' %}">
-
-{% load static %}
-<img src="{% static 'images/logo2.png' %}" alt="logo" style="width:555px;height:540px;">
-
 {% block content %}
+    <div class="logo">
+        {% load static %}
+        <img src="{% static 'images/logo2.png' %}" alt="logo" style="width:200px;height:200px;">
+    </div>
     <div class="main-heading">
         <h1>Product Review Credibility Analysis</h1>
     </div>
