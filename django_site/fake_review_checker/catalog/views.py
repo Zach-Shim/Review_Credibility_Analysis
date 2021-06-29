@@ -58,11 +58,11 @@ def plot(product_ASIN, duplicate, incentivized, anomaly):
     # create a graph
     plt.switch_backend('AGG')
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(11, 7))
-    fig.subplots_adjust(wspace=0.4)
+    fig.subplots_adjust(wspace=0.6)
     
-    duplicate.plot(ax1, product_ASIN)
-    incentivized.plot(ax2, product_ASIN)
-    anomaly.plot([ax3, ax4], product_ASIN)
+    duplicate.plot(ax1)
+    incentivized.plot(ax2)
+    anomaly.plot([ax3, ax4])
 
     # encode the figure as a png
     buf = BytesIO()
@@ -81,38 +81,51 @@ def result(request, product_ASIN):
     # static
     duplicate = Similarity()
     duplicateRatio = duplicate.detect(product_ASIN)
+    totalDuplicate = Review.objects.filter(asin=product_ASIN, duplicate=1).count()
 
     # Dynamic
     # Calculate Incentivized Ratio 
     incentivized = Incentivized()
     incentivizedRatio = incentivized.detect(product_ASIN)
+    totalIncentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
 
     # Calculate Rating Anomaly Rate and Interval/range of review posting dates 
     anomaly = Anomaly()
     (reviewAnomalyRate, ratingAnomalyRate) = anomaly.detect(product_ASIN)
     reviewDayRange = anomaly.get_day_range()
-    #ratingAnomColor = anomaly.get_rating_color()
-    #reviewAnomColor = anomaly.get_review_color()
+    totalReviewAnomalies = len(anomaly.review_count_anomalies['anoms']['anoms'])
+    totalRatingAnomalies = len(anomaly.rating_value_anomalies['anoms']['anoms'])
 
     # Create html product link
     link = ("https://www.amazon.com/dp/" + product_ASIN)
 
     # Calculate Number of Reviews and Date Range for Given Product
     reviewsForProduct = Review.objects.filter(asin=product_ASIN).count()
-    category = Product.objects.filter(asin=product_ASIN).values('category')
+    category = Product.objects.filter(asin=product_ASIN).values('category')[0]['category']
 
     figure = plot(product_ASIN, duplicate, incentivized, anomaly)
 
     context = {
         'product_ASIN': product_ASIN,
+        'category': category,
+        
         'duplicateRatio': duplicateRatio,
+        'totalDuplicate': totalDuplicate,
+
         'incentivizedRatio': incentivizedRatio,
-        'ratingAnomalyRate': ratingAnomalyRate,
+        'totalIncentivized': totalIncentivized,
+
         'reviewAnomalyRate': reviewAnomalyRate,
+        'totalReviewAnomalies': totalReviewAnomalies,
+
+        'ratingAnomalyRate': ratingAnomalyRate,
+        'totalRatingAnomalies': totalRatingAnomalies,
+        
         'reviewsForProduct': reviewsForProduct,
         'reviewDayRange': reviewDayRange,
-        'category': category,
+
         'link': link,
+
         'figure': figure,
     }
 

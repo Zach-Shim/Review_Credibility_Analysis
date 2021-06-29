@@ -43,9 +43,11 @@ class Command(BaseCommand):
         incentivized.detect(asin)
         
         fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
-        fig.subplots_adjust(wspace=0.4)
-        incentivized.plot(ax1, asin)
+        fig.subplots_adjust(wspace=0.5)
+        incentivized.plot(ax1)
+        plt.show()
 
+        
 
 '''
     Description:
@@ -85,18 +87,19 @@ class Incentivized(DetectionAlgorithms):
         self.completeKeyPhraseList = [w.replace('_', ' ') for w in set(self.completeKeyPhraseList)]
         #print(set(self.completeKeyPhraseList))
 
-
+        
 
     def detect(self, product_ASIN):
         # search each review in product_ASIN for incentivized keywords; incentivizedList is used for review_anomaly
+        self.product_ASIN = product_ASIN
         self.words_re = re.compile("|".join(self.completeKeyPhraseList))
         queries_to_update = []
-        for review in Review.objects.filter(asin=product_ASIN).values('id', 'reviewText'):
+        for review in Review.objects.filter(asin=self.product_ASIN).values('id', 'reviewText'):
             if self.words_re.search(review['reviewText']):
                 queries_to_update.append(review['id'])
         self._update_db(queries_to_update)
 
-        return self.calculate(product_ASIN)
+        return self.calculate(len(queries_to_update), Review.objects.filter(asin=self.product_ASIN).count())
 
 
 
@@ -105,37 +108,26 @@ class Incentivized(DetectionAlgorithms):
         print("\nPushing to database " + str(datetime.datetime.now()) + " start")
         for review in queries_to_update:
             obj = Review.objects.filter(id=review).update(incentivized=1)
-            '''
-            obj = Review.objects.filter(id=review).values('unixReviewTime', 'overall')
-            print(obj)
-            self.incentivized_review_times.append(obj[0]['unixReviewTime'])
-            self.incentivized_scores.append(obj[0]['overall'])
-            obj.update(incentivized=1)
-            '''
         print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
 
 
 
-    def plot(self, subplot, product_ASIN):
+    def plot(self, subplot):
         # Get unixReviewTimes and scores of all fake reviews
-        self.set_bins(product_ASIN)
-        self.set_info(product_ASIN)
+        self.set_info(self.product_ASIN)
         if self.empty_graph(subplot):
             return
 
         self.series = self.generate_frame()
         self.plot_frame(subplot, self.series)
-        plt.show()
         return 
 
 
 
-    def calculate(self, product_ASIN):
+    def calculate(self, fake_reviews, total):
         # calculate incentivized score = (total number of incentivized reviews) / (total number of reviews for asin)
-        incentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
-        total_reviews = Review.objects.filter(asin=product_ASIN).count()
-        incentivized_score = round(incentivized / total_reviews * 100, 2)
-        Product.objects.filter(asin=product_ASIN).update(incentivizedRatio=(incentivized_score))
+        incentivized_score = round(fake_reviews / total * 100, 2)
+        Product.objects.filter(asin=self.product_ASIN).update(incentivizedRatio=incentivized_score)
         return incentivized_score
 
 

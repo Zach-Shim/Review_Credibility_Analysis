@@ -22,12 +22,12 @@ class DetectionAlgorithms:
     def __init__(self, graph_info = None):
         self.fake_review_info = dict()
         self.graph_info = graph_info
-        self.bins = []
+        self.product_ASIN = ""
         self.review_day_range = 0
+    
 
 
-
-    def detect(self, product_ASIN):
+    def detect(self):
         pass
 
 
@@ -37,13 +37,14 @@ class DetectionAlgorithms:
         # Get unixReviewTimes and scores of all fake reviews
         unix_review_times = self.fake_review_info["review_times"]
         scores = self.fake_review_info["review_scores"]
+        bins = self.get_bins()
 
         # Place these metrics into even bins of values
-        review_count, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=self.graph_info['method'], bins=self.bins)
+        review_count, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=self.graph_info['method'], bins=bins)
         review_count = review_count[np.isfinite(review_count)]
 
         # Get the timed intervals of each bin
-        bin_timestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in self.bins]
+        bin_timestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in bins]
         review_count = self.compress_bins(review_count, bin_timestamps)
 
         # Create data frame that will be translated to a subplot
@@ -119,18 +120,18 @@ class DetectionAlgorithms:
 
 
 
-    def calculate(self, product_ASIN):
+    def calculate(self, fake_reviews, total):
         pass
 
 
 
-    def set_info(self, product_ASIN):
+    def set_info(self):
         pass
 
 
 
-    def set_bins(self, product_ASIN):
-        reviews = Review.objects.filter(asin=product_ASIN)
+    def get_bins(self):
+        reviews = Review.objects.filter(asin=self.product_ASIN)
 
         # get posting date range (earliest post - most recent post)
         most_recent_date = reviews.aggregate(Min('unixReviewTime'))
@@ -143,7 +144,7 @@ class DetectionAlgorithms:
         print("Product has reviews ranging " + str(self.review_day_range) + " days. Bucket count " + str(bucket_count))
         
         # Returns num evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
-        self.bins = np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
+        return np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
        
     
 

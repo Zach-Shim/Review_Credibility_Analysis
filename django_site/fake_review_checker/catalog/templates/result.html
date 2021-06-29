@@ -34,25 +34,26 @@
         <div>Anomalies
             <br><br>
             <strong>
-                <font color="green">rating value {{ ratingAnomalyRate }}</font><br>
-                <font color="green">review count {{ reviewAnomalyRate }}</font><br>
+                <font color="green">rating value {{ totalRatingAnomalies }}</font><br>
+                <font color="green">review count {{ totalReviewAnomalies }}</font><br>
             </strong>
         </div>
         <div>Incentivised
             <br><br><br>
             <strong>
-                <font color="green"> {{ incentivizedRatio }} reviews</font>
+                <font color="green"> {{ totalIncentivized }} reviews</font>
             </strong>
         </div>
         <div>Duplicate
             <br><br><br>
             <strong>
-                <font color="green"> {{ duplicateRatio }} reviews</font>
+                <font color="green"> {{ totalDuplicate }} reviews</font>
             </strong>
         </div>
         <div class ="credibility">Credibility
             <br><br>
-            <img src="red.png" height ="50" width ="50">
+            {% load static %}
+            <img src="images/red.png" height ="50" width ="50">
         </div>
 
     </section>

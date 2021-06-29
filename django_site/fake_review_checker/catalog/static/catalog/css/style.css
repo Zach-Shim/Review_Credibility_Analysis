@@ -5,16 +5,17 @@
 }
 
 .main-heading {
-    text-align: center;
+    text-align: left;
     margin-top: 20px;
     padding: 0;
+    color: rgb(142, 14, 14);
 }
 
 .logo {
     display: inline-block;
     vertical-align: middle;
     font-size: 30px;
-    margin-right: 75px;
+    margin-right: px;
     color: #FFF;
 }
 

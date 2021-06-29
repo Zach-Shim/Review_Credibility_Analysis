@@ -33,12 +33,13 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):        
         similarity = Similarity()
         similarity.invert_index()
-        matching_keys = similarity.compare_all_hashes()
+        similarity.compare_all_hashes()
 
         similarity.detect("B001LHVOVK")
         fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
-        fig.subplots_adjust(wspace=0.4)
-        similarity.plot(ax1, "B001LHVOVK")
+        fig.subplots_adjust(wspace=0.5)
+        similarity.plot(ax1)
+        plt.show()
         
 
 
@@ -80,11 +81,13 @@ class Similarity(DetectionAlgorithms):
                     break
 
 
-    # compares each review's bigram hashes against other review's bigram hashses (takes the cross section)
+
+    # compares a review's bigram hashes against other review's bigram hashses (takes the cross section of hashes in common)
     def compare_all_hashes(self):
         review_num = 1
         queries_to_update = []
-        for review in Review.objects.values('id', 'minHash'):
+
+        for review in Review.objects.values('id', 'asin', 'minHash'):
             if review_num % 1000 == 0:
                 print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num))
 
@@ -92,19 +95,18 @@ class Similarity(DetectionAlgorithms):
             matching_keys = dict()
             signature = review['minHash'].split(",")
             for j in range(0, self.num_of_hashes):
+                reviews = self.dictList[j][int(signature[j])]
+
+                # avoid parsing infinitely large number of reviews to save performance
+                if len(reviews) > 10000:
+                    continue
 
                 # for each review that has this bigram hash, add 1 to their matching key index
-                reviews = self.dictList[j][int(signature[j])]
                 for r in reviews:
                     matching_keys[r] = matching_keys.get(r, 0) + 1
 
-                # output checks
-                if len(reviews) > 10000:
-                    #print("Hash " + str(j) + " has " + str(len(reviews)) + " matches for product " + str(review_num))
-                    continue
-
             #print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num) + " has " + str(len(matching_keys)) + "product matches")
-
+            
             sorted_matched_keys = sorted(matching_keys.items(), key=operator.itemgetter(1), reverse=True)
             for x in sorted_matched_keys:
                 #print ("Max hash matches for " + str(review_num) + " is " + str(x[1]))
@@ -116,8 +118,8 @@ class Similarity(DetectionAlgorithms):
                 else:
                     break
             review_num += 1
-        print("\nMatching " + str(datetime.datetime.now()) + " finished")
 
+        print("\nMatching " + str(datetime.datetime.now()) + " finished")
         self._update_db(queries_to_update)
 
 
@@ -127,52 +129,38 @@ class Similarity(DetectionAlgorithms):
         print("\nPushing to database " + str(datetime.datetime.now()) + " start")
         for review in queries_to_update:
             obj = Review.objects.filter(id=review).update(duplicate=1)
-            '''
-            obj = Review.objects.filter(id=review).values('unixReviewTime', 'overall')
-            print(obj)
-            self.duplicate_review_times.append(obj[0]['unixReviewTime'])
-            self.duplicate_scores.append(obj[0]['overall'])
-            obj.update(duplicate=1)
-            '''
         print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
 
 
-
+    # used to identify all duplicate reviews for a single product (used dynamically)
     def detect(self, product_ASIN):
-        return self.calculate(product_ASIN)
+        self.product_ASIN = product_ASIN
+        duplicates = Review.objects.filter(asin=self.product_ASIN, duplicate=1).count()
+        total_reviews = Review.objects.filter(asin=self.product_ASIN).count()
+        dup_score = round(duplicates / total_reviews * 100, 2)
+        Product.objects.filter(asin=self.product_ASIN).update(duplicateRatio=dup_score)
+        return dup_score
 
 
 
-    def plot(self, subplot, product_ASIN):
-        print("here")
+    def plot(self, subplot):
         # Get unixReviewTimes and scores of all fake reviews
-        self.set_bins(product_ASIN)
-        self.set_info(product_ASIN)
+        self.set_info()
         if self.empty_graph(subplot):
             return
 
         self.series = self.generate_frame()
         self.plot_frame(subplot, self.series)
-        plt.show()
         return
 
 
 
-    # calculates the duplicateRatio = (number of duplicate reviews for a given asin) / (total reviews for a given asin)
-    def calculate(self, product_ASIN):
-        duplicates = Review.objects.filter(asin=product_ASIN, duplicate=1).count()
-        total_reviews = Review.objects.filter(asin=product_ASIN).count()
-        dup_score = round(duplicates / total_reviews * 100, 2)
-        Product.objects.filter(asin=product_ASIN).update(duplicateRatio=dup_score)
-        return dup_score
-
-
     # retrieve the information of all duplicate reviews for a given asin 
     # method used by views.py - plot()
-    def set_info(self, product_ASIN):
+    def set_info(self):
         unix_review_times = []
         scores = []
-        for review in Review.objects.filter(asin=product_ASIN, duplicate=1):
+        for review in Review.objects.filter(asin=self.product_ASIN, duplicate=1):
             unix_review_times.append(review.unixReviewTime)
             scores.append(review.overall)
         self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}
