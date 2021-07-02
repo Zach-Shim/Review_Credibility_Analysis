@@ -1,2 +1,3 @@
-TO DO:
-1. Add onto html templates (css formatting and content)
+Sprint Log:
+1. Implement CSS on basic HTML.
+2. Sanitize form input on home page.
