@@ -1,21 +1,145 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="logo">
-        {% load static %}
-        <img src="{% static 'images/logo2.png' %}" alt="logo" style="width:200px;height:200px;">
-    </div>
-    <div class="main-heading">
-        <h1>Product Review Credibility Analysis</h1>
+
+    <head>
+        <!-- Autocomplete feature for search bar-->
+        <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+        <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+        <script>
+            $(function() {
+                $("#asin_choice").autocomplete({
+                    source: "{% url 'index' %}"
+                });
+            });
+        </script>
+
+        <h1 class="title-introduction"> 
+            Fakeology 
+        </h1>
+
+        <p class="landing-text">
+            Fakeology is a service made up of a set of machine learning algorithms that help determine fake reviews on Amazon products!
+        </p>
+    </head>
+
+    <!-- NAVIGATION -->
+    <nav class="navbar-wrapper navbar-default" role="navigation">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-themers">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="#top"><img src="images/logo.png" alt="logo"></a>
+        </div>
+
+        <div id="navbar-scroll" class="collapse navbar-collapse navbar-themers navbar-right">
+            <ul class="navbar-buttons">
+                <li><a href="#package">Search Our Repository</a></li>
+                <li><a href="#download">Search By Link</a></li>
+                <li><a href="#intro">About</a></li>
+            </ul>
+        </div>
+
+        <div class="navbar-search">
+            <form method="get">
+                <label for="asin_choice">Enter a product asin</label>
+                <input id="asin_choice" type="text" name="asin_choice">
+                <input type="submit" value="Search">
+            </form>
+        </div>
+    </nav>
+
+    
+    <!-- intro section -->
+    <div id="intro" style="background-image:url('images/bg.jpg');">
+            <div class="container">
+            <div class="row">
+        
+        <!-- feature image -->
+                <div class="col-md-6 feature-2-pic wow fadeInLeft">
+                    <img src="images/description.jpg" alt="image" class="img-responsive">
+                </div>	
+                
+                <!-- feature content -->
+                <div class="col-md-6 wow fadeInRight">
+                    <h2>What is Fakeology?</h2>
+                    <p>Lorem Ipsum is simply dummy text of the printing and typesetting industry. </p>
+                    <p>Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. </p>
+                    <p>It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset.
+                    </p>
+                </div>
+                            
+            </div>			  
+    
+        </div>
     </div>
 
-    <div class="dyn-list">
-        <h2>Dynamic content</h2>
-        <p>The library has the following record counts:</p>
-        <ul>
-            <li><strong>Number of Users:</strong> {{ num_users }}</li>
-            <li><strong>Number of Products:</strong> {{ num_products }}</li>
-            <li><strong>Number of Reviews:</strong> {{ num_reviews }}</li>
-        </ul>
+    <!-- feature section -->
+    <div id="feature">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-10 col-md-offset-1 col-sm-12 text-center feature-title">
+
+                <!-- feature title -->
+                    <h2>Have Confidence In Your Next Purchase</h2>
+                    <p>Avoid dishonest sellers and reviews for free. Fakespot uses a variety of text classification and
+                        anomaly detection software algorithms to determine if seller reviews are fake.</p>
+                </div>
+            </div>
+            <div class="row row-feat">
+                
+                <div class="col-md-12">
+
+                    <!-- feature 1 -->
+                    <div class="col-sm-4 feat-list">
+                        <i class="fa fa-clock-o wow fadeInUp"></i>
+                        <div class="inner">
+                            <h4>Click of a button</h4>
+                            <p>Analyze any review on Amazon with the click of a button. Simply copy and paste a link into our site, or search our repository for products we have already analyzed.</p>
+                        </div>
+                    </div>
+                
+                    <!-- feature 2 -->
+                    <div class="col-sm-4 feat-list">
+                        <i class="fa fa-pie-chart wow fadeInUp" data-wow-delay="0.2s"></i>
+                        <div class="inner">
+                            <h4>Detailed Reports</h4>
+                            <p>Get a detailed reports highlighting statistical analysis performed on a product of your choosing. Use this information to asisst in purchase decisions and avoid spam.</p>
+                        </div>
+                    </div>
+                
+                    <!-- feature 3 -->
+                    <div class="col-sm-4 feat-list"> 
+                        <i class="fa fa-search wow fadeInUp" data-wow-delay="0.4s"></i>
+                        <div class="inner">
+                            <h4>Machine Learning</h4>
+                            <p>Use a service backed by varying machine learning algorithms that target average rating anomalies, review timing anomalies, incentivized word count, and review text similarity.</p>
+                        </div>
+                    </div>
+                
+                    
+                </div>
+            </div>
+        </div>
     </div>
+    
+    <!-- footer -->
+    <footer id="footer">
+        <div class="container">
+            <div class="col-sm-4 col-sm-offset-4">
+                <!-- social links -->
+                    <div class="social text-center">
+                        <ul>
+                            <li><a class="wow fadeInUp" href="https://twitter.com/"><i class="fa fa-twitter"></i></a></li>
+                            <li><a class="wow fadeInUp" href="https://www.facebook.com/" data-wow-delay="0.2s"><i class="fa fa-facebook"></i></a></li>
+                            <li><a class="wow fadeInUp" href="https://plus.google.com/" data-wow-delay="0.4s"><i class="fa fa-google-plus"></i></a></li>
+                            <li><a class="wow fadeInUp" href="https://instagram.com/" data-wow-delay="0.6s"><i class="fa fa-instagram"></i></a></li>
+                        </ul>
+                    </div>	
+            </div>	
+        </div>	
+    </footer>
+</div>
 {% endblock %}

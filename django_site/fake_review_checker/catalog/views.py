@@ -13,11 +13,15 @@ import base64
 import urllib
 
 # Django Imports
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
+from django.http import JsonResponse
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 
 # Local Imports
 from .models import User, Product, Review
+from .forms import AsinForm
 from .management.commands.detection_algorithms import DetectionAlgorithms
 from .management.commands.incentivized import Incentivized
 from .management.commands.anomaly import Anomaly
@@ -25,26 +29,33 @@ from .management.commands.similarity import Similarity
 
 
 
-def test(request):
-    return HttpResponse("Hello World")
+"""View function for home page of site."""
+def index(request):
+    # when a user types in the search box, autocomplete the first 10 product asin options from their input
+    if 'term' in request.GET:
+        titles = [product.asin for product in Product.objects.filter(asin__istartswith=request.GET.get('term'))]
+        return JsonResponse(titles[0:10], safe=False)
+
+    if request.method == 'GET':
+        # Create a form instance and populate it with data from the request (binding):
+        form = AsinForm(request.GET)
+        if form.is_valid():
+            # redirect to a new URL:
+            return HttpResponseRedirect(reverse('result', args=[form.cleaned_data['asin_choice']]) )
+
+
+    # Render the HTML template index.html with the data in the context variable
+    return render(request, 'index.html')
 
 
 
 """View function for home page of site."""
-def index(request):
-    # Generate counts of some of the main objects
-    num_users = User.objects.all().count()
-    num_products = Product.objects.all().count()
-    num_reviews = Review.objects.all().count()
-
+def about(request):
     context = {
-        'num_users': num_users,
-        'num_products': num_products,
-        'num_reviews': num_reviews,
     }
 
     # Render the HTML template index.html with the data in the context variable
-    return render(request, 'index.html', context=context)
+    return render(request, 'about.html', context=context)
 
 
 
@@ -76,15 +87,15 @@ def plot(product_ASIN, duplicate, incentivized, anomaly):
 
 
 
-# incentivizedReviews = Product.objects.filter(review__asin=productASIN).exclude(incentivizedRatio=0).count()
 def result(request, product_ASIN):
     # static
+    # Calculate Duplicate Ratio and number of duplicate reviews
     duplicate = Similarity()
     duplicateRatio = duplicate.detect(product_ASIN)
     totalDuplicate = Review.objects.filter(asin=product_ASIN, duplicate=1).count()
 
     # Dynamic
-    # Calculate Incentivized Ratio 
+    # Calculate Incentivized Ratio and number of incentivized reviews
     incentivized = Incentivized()
     incentivizedRatio = incentivized.detect(product_ASIN)
     totalIncentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
@@ -96,13 +107,11 @@ def result(request, product_ASIN):
     totalReviewAnomalies = len(anomaly.review_count_anomalies['anoms']['anoms'])
     totalRatingAnomalies = len(anomaly.rating_value_anomalies['anoms']['anoms'])
 
-    # Create html product link
-    link = ("https://www.amazon.com/dp/" + product_ASIN)
-
     # Calculate Number of Reviews and Date Range for Given Product
     reviewsForProduct = Review.objects.filter(asin=product_ASIN).count()
     category = Product.objects.filter(asin=product_ASIN).values('category')[0]['category']
 
+    # Plot graphs for each detection algorithm
     figure = plot(product_ASIN, duplicate, incentivized, anomaly)
 
     context = {
@@ -124,12 +133,11 @@ def result(request, product_ASIN):
         'reviewsForProduct': reviewsForProduct,
         'reviewDayRange': reviewDayRange,
 
-        'link': link,
-
         'figure': figure,
     }
 
     # Render the HTML template index.html with the data in the context variable
     return render(request, 'result.html', context=context)
+
 
 
