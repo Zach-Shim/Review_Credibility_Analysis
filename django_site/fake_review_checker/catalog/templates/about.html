@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <!-- Main header used across all the pages of the website -->
+    <header>
+        <h1>Results Page</h1>
+
+        <!--Home Page Logo (Left Justified)-->
+        <div>
+            <a href="index.html" title="Home page">
+                {% load static %}
+                <img src="{% static 'images/logo.png' %}" alt="Logo for Fake Review Checker">
+            </a>
+        </div>
+    </header>
+
+
+    <!-- Main navigation bar (links to site's main sections) -->
+    <nav>
+        <a href="index.html" title="Search for a product you want to evaluate."></a>Search for A Product</a>
+        <p>About</p>
+        
+        <form>
+            <input type="search" name="q" placeholder="Search for a product">
+            <input type="submit" value="Go">
+        </form>
+    </nav>
+{% endblock %}
