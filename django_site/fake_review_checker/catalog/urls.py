@@ -6,3 +6,4 @@ urlpatterns = [
     path('about/', views.about, name='about'),
     path('result/<str:product_ASIN>/', views.result, name = 'result'),
 ] 
+ 

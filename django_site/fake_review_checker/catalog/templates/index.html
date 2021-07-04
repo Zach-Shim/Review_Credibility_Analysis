@@ -13,53 +13,50 @@
                 });
             });
         </script>
-
-        <h1 class="title-introduction"> 
-            Fakeology 
-        </h1>
-
-        <p class="landing-text">
-            Fakeology is a service made up of a set of machine learning algorithms that help determine fake reviews on Amazon products!
-        </p>
     </head>
 
     <!-- NAVIGATION -->
-    <nav class="navbar-wrapper navbar-default" role="navigation">
-        <div class="navbar-header">
-            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-themers">
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="#top"><img src="images/logo.png" alt="logo"></a>
-        </div>
-
-        <div id="navbar-scroll" class="collapse navbar-collapse navbar-themers navbar-right">
-            <ul class="navbar-buttons">
+    <nav class="navigation">
+        <div class="nav-scroll">
+            <ul class="nav-buttons">
                 <li><a href="#package">Search Our Repository</a></li>
                 <li><a href="#download">Search By Link</a></li>
                 <li><a href="#intro">About</a></li>
             </ul>
         </div>
+    </nav>
 
-        <div class="navbar-search">
+
+    <!-- search section -->
+    <div>
+        <h1 class="title-introduction"> 
+            Fakeology 
+        </h1>
+
+        <p class="landing-text">
+            Search an asin in our Amazon dataset to get started
+        </p>
+
+        <div action="" class="search">
             <form method="get">
-                <label for="asin_choice">Enter a product asin</label>
-                <input id="asin_choice" type="text" name="asin_choice">
+                <table>
+                    {{ form.as_table }}
+                </table>
                 <input type="submit" value="Search">
             </form>
         </div>
-    </nav>
+    </div>
 
     
-    <!-- intro section -->
-    <div id="intro" style="background-image:url('images/bg.jpg');">
+    <!-- description section -->
+    <div id="intro">
             <div class="container">
             <div class="row">
         
         <!-- feature image -->
                 <div class="col-md-6 feature-2-pic wow fadeInLeft">
-                    <img src="images/description.jpg" alt="image" class="img-responsive">
+                    {% load static %}
+                    <img src="{% static 'images/description.jpg' %}" alt="image" class="img-responsive">
                 </div>	
                 
                 <!-- feature content -->

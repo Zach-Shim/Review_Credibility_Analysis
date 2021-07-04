@@ -31,21 +31,30 @@ from .management.commands.similarity import Similarity
 
 """View function for home page of site."""
 def index(request):
+    # Create a form instance and populate it with data from the request (binding):
+    form = AsinForm(request.GET)
+
     # when a user types in the search box, autocomplete the first 10 product asin options from their input
-    if 'term' in request.GET:
-        titles = [product.asin for product in Product.objects.filter(asin__istartswith=request.GET.get('term'))]
-        return JsonResponse(titles[0:10], safe=False)
-
     if request.method == 'GET':
-        # Create a form instance and populate it with data from the request (binding):
-        form = AsinForm(request.GET)
         if form.is_valid():
-            # redirect to a new URL:
+            # redirect to a new URL (result view):
+            print("redirecting...")
             return HttpResponseRedirect(reverse('result', args=[form.cleaned_data['asin_choice']]) )
+        
+        if 'term' in request.GET:
+            print("getting autofill options...")
+            titles = [product.asin for product in Product.objects.filter(asin__istartswith=request.GET.get('term'))]
+            return JsonResponse(titles[0:10], safe=False)
+    else:
+        print("making form")
+        form = AsinForm(initial={'asin_choice': ''})
 
+    context = {
+        'form': form,
+    }
 
     # Render the HTML template index.html with the data in the context variable
-    return render(request, 'index.html')
+    return render(request, 'index.html', context)
 
 
 

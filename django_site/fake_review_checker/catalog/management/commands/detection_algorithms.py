@@ -27,7 +27,7 @@ class DetectionAlgorithms:
     
 
 
-    def detect(self):
+    def detect(self, product_ASIN):
         pass
 
 
