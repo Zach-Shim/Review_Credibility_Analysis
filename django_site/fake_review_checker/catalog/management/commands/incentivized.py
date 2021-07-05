@@ -64,8 +64,6 @@ class Incentivized(DetectionAlgorithms):
         self.completeKeyPhraseList = []
         self.antonyms = []
         self.find_keywords()
-
-        self.series = []
         
         # invoking the constructor of the parent class  
         graph_info = {"method": "count", "title": "Incentivized Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
@@ -112,30 +110,8 @@ class Incentivized(DetectionAlgorithms):
 
 
 
-    def plot(self, subplot):
-        # Get unixReviewTimes and scores of all fake reviews
-        self.set_info(self.product_ASIN)
-        if self.empty_graph(subplot):
-            return
-
-        self.series = self.generate_frame()
-        self.plot_frame(subplot, self.series)
-        return 
-
-
-
     def calculate(self, fake_reviews, total):
         # calculate incentivized score = (total number of incentivized reviews) / (total number of reviews for asin)
         incentivized_score = round(fake_reviews / total * 100, 2)
         Product.objects.filter(asin=self.product_ASIN).update(incentivizedRatio=incentivized_score)
         return incentivized_score
-
-
-
-    def set_info(self, product_ASIN):
-        unix_review_times = []
-        scores = []
-        for review in Review.objects.filter(asin=product_ASIN, incentivized=1):
-            unix_review_times.append(review.unixReviewTime)
-            scores.append(review.overall)
-        self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}

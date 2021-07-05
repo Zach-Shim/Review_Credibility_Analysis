@@ -19,12 +19,15 @@ from ...models import User, Product, Review
 
 class DetectionAlgorithms:
     
-    def __init__(self, graph_info = None):
+    def __init__(self, graph_info):
         self.fake_review_info = dict()
         self.graph_info = graph_info
         self.product_ASIN = ""
         self.review_day_range = 0
     
+        # plotting info
+        self.series = []
+
 
 
     def detect(self, product_ASIN):
@@ -50,8 +53,20 @@ class DetectionAlgorithms:
         # Create data frame that will be translated to a subplot
         graph_series = {"timestamp": bin_timestamps, "value": review_count}
         graph_frame = pd.DataFrame(graph_series)
-        print(graph_frame)
+
         return graph_frame
+
+
+
+    def plot(self, subplot):
+        # Get unixReviewTimes and scores of all fake reviews
+        self.set_info()
+        if self.empty_graph(subplot):
+            return
+
+        self.series = self.generate_frame()
+        self.plot_frame(subplot, self.series)
+        return
 
 
 
@@ -125,11 +140,6 @@ class DetectionAlgorithms:
 
 
 
-    def set_info(self):
-        pass
-
-
-
     def get_bins(self):
         reviews = Review.objects.filter(asin=self.product_ASIN)
 
@@ -147,6 +157,21 @@ class DetectionAlgorithms:
         return np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
        
     
+
+    def set_info(self):
+        reviews = {}
+        if 'Duplicate' in self.graph_info['title']:
+            reviews = Review.objects.filter(asin=self.product_ASIN, duplicate=1)
+        if 'Incentivized' in self.graph_info['title']:
+            reviews = Review.objects.filter(asin=self.product_ASIN, incentivized=1)
+
+        unix_review_times = scores = []
+        for review in reviews:
+            unix_review_times.append(review.unixReviewTime)
+            scores.append(review.overall)
+        self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}
+
+
 
     def get_day_range(self):
         return self.review_day_range
