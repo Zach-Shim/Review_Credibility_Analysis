@@ -23,34 +23,6 @@ from django.db.models import Max, Min, Avg
 from ...models import User, Product, Review
 from .detection_algorithms import DetectionAlgorithms
 
-
-'''
-    Description:
-        Used by the results() view in views.py to dynamically calculate a new review
-        Also used as terminal command: python manage.py anomaly (asin)
-    Parameters:
-        A valid product ASIN given as input in the command line
-'''
-class Command(BaseCommand):
-    help = 'Get product review anomaly scores'
-
-    # adds an argument to **kwards in the handle function
-    def add_arguments(self, parser):
-        parser.add_argument('product_ASIN', type=str, help='Indicates the asin of the product we are currently analyzing')
-
-    # args holds number of args, kwargs is dict of args
-    def handle(self, *args, **kwargs):
-        asin = kwargs['product_ASIN']
-        r_anomaly = Anomaly()   
-        print(r_anomaly.detect(asin))
-
-        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(11, 7))
-        fig.subplots_adjust(wspace=0.5)
-        r_anomaly.plot([ax1, ax2])
-        plt.show()
-
-
-
 '''
     Description:
         Used by the results() view in views.py to dynamically calculate a new review's review and rating anomaly score
@@ -59,13 +31,9 @@ class Command(BaseCommand):
 '''
 class Anomaly(DetectionAlgorithms):
 
-    def __init__(self):
-        self.series = dict()
-        self.rating_value_anomalies = defaultdict(dict)
-        self.review_count_anomalies = defaultdict(dict)
-
+    def __init__(self, graph_info):
         # invoking the constructor of the parent class  
-        super(Anomaly, self).__init__()  
+        super(Anomaly, self).__init__(graph_info)  
 
 
 
@@ -73,58 +41,26 @@ class Anomaly(DetectionAlgorithms):
     def detect(self, product_ASIN):
         self.product_ASIN = product_ASIN
         self.set_info()
-        review_val = self.detect_review_anomalies()
-        rating_val = self.detect_rating_anomalies()
-        return [review_val, rating_val]
 
-
-
-    def detect_review_anomalies(self):
-        # Calculate an even number of bins based on range of unix_review_times x months        
-        self.graph_info = {"method": "count", "title": "Review Count Anomalies"}
-        self.series['review_anomaly'] = self.generate_frame()
+        # Calculate an even number of bins based on range of unix_review_times x months
+        self.series = self.generate_frame()
 
         # calculate anomalies in rating value distribution
+        detected_anomalies = []
         try:
-            self.review_count_anomalies = detect_ts(self.series['review_anomaly'], max_anoms=0.02, direction='both')
+            detected_anomalies = detect_ts(self.series, max_anoms=0.02, direction='both')
         except:
-            self.review_count_anomalies['anoms']['anoms'] = []
+            detected_anomalies['anoms']['anoms'] = []
 
-        return self.calculate(len(self.review_count_anomalies['anoms']['anoms']), Review.objects.filter(asin=self.product_ASIN).count())
-
-
-
-    def detect_rating_anomalies(self):
-        # Calculate an even number of bins based on range of unixReviewTimes x months 
-        self.graph_info = {"method": "mean", "title": "Average Rating Anomalies"}
-        self.series['rating_anomaly'] = self.generate_frame()
-
-        # calculate anomalies in review value distribution
-        try:
-            self.rating_value_anomalies = detect_ts(self.series['rating_anomaly'], max_anoms=0.02, direction='both')
-        except:
-            self.rating_value_anomalies['anoms']['anoms'] = []
-        return self.calculate(len(self.rating_value_anomalies['anoms']['anoms']), Review.objects.filter(asin=self.product_ASIN).count())
+        return self.calculate(len(detected_anomalies['anoms']['anoms']), Review.objects.filter(asin=self.product_ASIN).count())
 
 
 
+    # overloaded plot method, because we had to build the dataframes in detect in order to analyze the data
     def plot(self, subplot):
         if self.empty_graph(subplot):
             return
-        
-        self.graph_info.update({"title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"})
-        axis1 = self.plot_frame(subplot[0], self.series['review_anomaly'])
-        self.graph_info.update({"title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"})
-        axis2 = self.plot_frame(subplot[1], self.series['rating_anomaly'])
-        return [axis1, axis2]
-
-
-
-    # accepts total number of anomalies and total number of anomalies (anomaly score = number of anomalies / total number of reviews)
-    def calculate(self, fake_reviews, total):
-        anomaly_score = round(fake_reviews / total * 100, 2)
-        Product.objects.filter(asin=self.product_ASIN).update(reviewAnomalyRate=anomaly_score)
-        return anomaly_score
+        self.plot_frame(subplot, self.series)
 
 
 

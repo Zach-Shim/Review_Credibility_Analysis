@@ -32,8 +32,8 @@ class Command(BaseCommand):
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):        
         similarity = Similarity()
-        similarity.invert_index()
-        similarity.compare_all_hashes()
+        #similarity.invert_index()
+        #similarity.compare_all_hashes()
 
         similarity.detect("B001LHVOVK")
         fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
@@ -49,9 +49,6 @@ class Similarity(DetectionAlgorithms):
     def __init__(self):
         # For each of the 'num_of_hashes' hash functions, generate a different coefficient 'a' and 'b'.
         self.num_of_hashes = 105
-
-        # plotting info
-        self.series = []
 
         # inverted index
         self.dictList = [dict() for x in range(self.num_of_hashes)]
@@ -141,26 +138,3 @@ class Similarity(DetectionAlgorithms):
         Product.objects.filter(asin=self.product_ASIN).update(duplicateRatio=dup_score)
         return dup_score
 
-
-
-    def plot(self, subplot):
-        # Get unixReviewTimes and scores of all fake reviews
-        self.set_info()
-        if self.empty_graph(subplot):
-            return
-
-        self.series = self.generate_frame()
-        self.plot_frame(subplot, self.series)
-        return
-
-
-
-    # retrieve the information of all duplicate reviews for a given asin 
-    # method used by views.py - plot()
-    def set_info(self):
-        unix_review_times = []
-        scores = []
-        for review in Review.objects.filter(asin=self.product_ASIN, duplicate=1):
-            unix_review_times.append(review.unixReviewTime)
-            scores.append(review.overall)
-        self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}
