@@ -60,8 +60,14 @@ class Command(BaseCommand):
 class ReviewAnomaly(Anomaly):
 
     def __init__(self):
+        review_anomalies = []
+
         # invoking the constructor of the parent class  
         super(ReviewAnomaly, self).__init__({"method": "count", "title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"})  
+
+    def detect(self, product_ASIN):
+        self.review_anomalies = self.detect_anomalies(product_ASIN)
+        return self.calculate(len(self.review_anomalies['anoms']['anoms']), Review.objects.filter(asin=self.product_ASIN).count())
 
     # accepts total number of anomalies and total number of anomalies (anomaly score = number of anomalies / total number of reviews)
     def calculate(self, fake_reviews, total):

@@ -38,7 +38,7 @@ class Anomaly(DetectionAlgorithms):
 
 
     # returns reviews in bins of 30-day time series
-    def detect(self, product_ASIN):
+    def detect_anomalies(self, product_ASIN):
         self.product_ASIN = product_ASIN
         self.set_info()
 
@@ -52,7 +52,7 @@ class Anomaly(DetectionAlgorithms):
         except:
             detected_anomalies['anoms']['anoms'] = []
 
-        return self.calculate(len(detected_anomalies['anoms']['anoms']), Review.objects.filter(asin=self.product_ASIN).count())
+        return detected_anomalies
 
 
 

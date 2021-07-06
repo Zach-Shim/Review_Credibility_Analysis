@@ -24,7 +24,8 @@ from .models import User, Product, Review
 from .forms import AsinForm
 from .management.commands.detection_algorithms import DetectionAlgorithms
 from .management.commands.incentivized import Incentivized
-from .management.commands.anomaly import Anomaly
+from .management.commands.review_anomaly import ReviewAnomaly
+from .management.commands.rating_anomaly import RatingAnomaly
 from .management.commands.similarity import Similarity
 
 
@@ -74,15 +75,17 @@ def about(request):
     Parameters:
         (productASIN, objects you want to graph...)
 '''
-def plot(product_ASIN, duplicate, incentivized, anomaly):
+def plot(product_ASIN, duplicate, incentivized, review_anomaly, rating_anomaly):
     # create a graph
     plt.switch_backend('AGG')
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(11, 7))
     fig.subplots_adjust(wspace=0.6)
     
+    # plot all axes
     duplicate.plot(ax1)
     incentivized.plot(ax2)
-    anomaly.plot([ax3, ax4])
+    review_anomaly.plot(ax3)
+    rating_anomaly.plot(ax4)
 
     # encode the figure as a png
     buf = BytesIO()
@@ -109,19 +112,22 @@ def result(request, product_ASIN):
     incentivizedRatio = incentivized.detect(product_ASIN)
     totalIncentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
 
+    # Calculate Review Anomaly Rate and Interval/range of review posting dates 
+    review_anomaly = ReviewAnomaly()
+    reviewAnomalyRate = review_anomaly.detect(product_ASIN)
+    totalReviewAnomalies = len(review_anomaly.review_anomalies['anoms']['anoms'])
+
     # Calculate Rating Anomaly Rate and Interval/range of review posting dates 
-    anomaly = Anomaly()
-    (reviewAnomalyRate, ratingAnomalyRate) = anomaly.detect(product_ASIN)
-    reviewDayRange = anomaly.get_day_range()
-    totalReviewAnomalies = len(anomaly.review_count_anomalies['anoms']['anoms'])
-    totalRatingAnomalies = len(anomaly.rating_value_anomalies['anoms']['anoms'])
+    rating_anomaly = RatingAnomaly()
+    ratingAnomalyRate = rating_anomaly.detect(product_ASIN)
+    totalRatingAnomalies = len(rating_anomaly.rating_anomalies['anoms']['anoms'])
 
     # Calculate Number of Reviews and Date Range for Given Product
     reviewsForProduct = Review.objects.filter(asin=product_ASIN).count()
     category = Product.objects.filter(asin=product_ASIN).values('category')[0]['category']
 
     # Plot graphs for each detection algorithm
-    figure = plot(product_ASIN, duplicate, incentivized, anomaly)
+    figure = plot(product_ASIN, duplicate, incentivized, review_anomaly, rating_anomaly)
 
     context = {
         'product_ASIN': product_ASIN,
@@ -140,7 +146,6 @@ def result(request, product_ASIN):
         'totalRatingAnomalies': totalRatingAnomalies,
         
         'reviewsForProduct': reviewsForProduct,
-        'reviewDayRange': reviewDayRange,
 
         'figure': figure,
     }
