@@ -38,22 +38,24 @@ class Anomaly(DetectionAlgorithms):
 
 
     # returns reviews in bins of 30-day time series
-    def detect(self, product_ASIN):
+    def detect_anomalies(self, product_ASIN):
         self.product_ASIN = product_ASIN
         self.set_info()
 
         # Calculate an even number of bins based on range of unix_review_times x months
         self.series = self.generate_frame()
+        print(self.series)
 
         # calculate anomalies in rating value distribution
-        detected_anomalies = []
+        detected_anomalies = dict()
         try:
             detected_anomalies = detect_ts(self.series, max_anoms=0.02, direction='both')
+            return len(detected_anomalies['anoms']['anoms'])
         except:
-            detected_anomalies['anoms']['anoms'] = []
-
-        return self.calculate(len(detected_anomalies['anoms']['anoms']), Review.objects.filter(asin=self.product_ASIN).count())
-
+            return 0
+        
+        print("error")
+        return 0
 
 
     # overloaded plot method, because we had to build the dataframes in detect in order to analyze the data
