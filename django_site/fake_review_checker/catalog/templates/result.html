@@ -1,97 +1,70 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <!-- Main header used across all the pages of the website -->
-    <header>
-        <h1>Results Page</h1>
-
-        <!--Home Page Logo (Left Justified)-->
-        <div>
-            <a href="{% url 'index' %}" title="Home page">
-                {% load static %}
-                <img src="{% static 'images/logo.png' %}" alt="Logo for Fake Review Checker">
-            </a>
+    <!-- NAVIGATION -->
+    <nav class="nav-bar">
+        <div class="logo">
+            {% load static%}
+            <a href="{% url 'index'%}" class="logo"><img src="{% static 'images/logo2.png' %}" alt="Logo for Fake Review Checker"></a>
         </div>
-    </header>
-
-
-    <!-- Main navigation bar (links to site's main sections) -->
-    <nav>
-        <a href="{% url 'index' %}" title="Search for a product you want to evaluate."></a>Search for A Product</a>
-        <a href="{% url 'about' %}" title="More information about me"></a>About Me</a>
-        
-        <form action="/<str:product_ASIN>/results" method="post">
-            <label for="asin_choice">Enter a product asin</label>
-            <input id="asin_choice" type="text" name="asin_choice" value="{{ product_ASIN }}">
-            <input type="submit" value="OK">
-        </form>
+        <div class="nav-buttons">            
+            <a href="{% url 'index'%}">Search Our Repository</a>
+            <a href="{% url 'search_link'%}">Search By Link</a>
+            <a href="{% url 'about'%}">About</a>
+        </div>
     </nav>
-    
 
     <!-- Page's main content-->
-    <main>
-        <article class="column">
-            <h2>Credibility analysis report for ASIN: <strong>{{ currentAsin }}</strong></h2>
+    <article class="results">
 
-            <heading>
-                <h2>Product Information</h2>
-            </heading>
-            <section>
-                <ul>
-                    <li>Product Asin: {{ product_ASIN }}</li>
-                    <li>Product Category: {{ category }}</li>
-                    <li>Product Site Link: <a href="{{ link }}"">Open in Amazon</a></li>
-                    <li>Product Credbility: Poor</li>
-                </ul>
-            </section>
+        <!-- PRODUCT INFO -->
+        <section class="product-info">
+            <h1> Credibility Analysis Report </h1>
 
-            <heading>
-                <h2>Analysis Information</h2>
-            </heading>
-            <section>
-                <table>
-                    <tr>
-                        <th>Methodology</th>
-                        <th>Reviews Detected</th>
-                        <th>Score for Category</th>
-                        <th>Score for Product</th>
-                    </tr>
-                    <tr>
-                        <td>Rating Value Anomaly</td>
-                        <td> {{ totalRatingAnomalies }} </td>
-                        <td> total category rate </td>
-                        <td> {{ ratingAnomalyRate }} </td>
-                    </tr>
-                    <tr>
-                        <td>Review Count Anomaly</td>
-                        <td> {{ totalReviewAnomalies }}</td>
-                        <td> total category rate </td>
-                        <td> {{ reviewAnomalyRate }} </td>
-                    </tr>
-                    <tr>
-                        <td>Incentivized Reviews</td>
-                        <td> {{ totalIncentivized }} </td>
-                        <td> total category rate </td>
-                        <td> {{ incentivizedRatio }}</td>
-                    </tr>
-                    <tr>
-                        <td>Duplicate Reviews</td>
-                        <td> {{ totalDuplicate }} </td>
-                        <td> total category rate </td>
-                        <td> {{ duplicateRatio }}</td>
-                    </tr>    
-            </section>
+            <p> Report generated for product ASIN: <strong>{{ product_ASIN }}</strong> </p>
 
-            <header>
-                <h2>Analysis Graphs</h2>
-            </header>
-            <section>
-                <img src="data:image/png;base64, {{ figure|safe }}">
-            </section>
-        </article>
-    </main>
-    
-    <footer>
-        <p></p>
-    </footer>
+            <form action="https://google.com">
+                <input type="submit" value="Open in Amazon" />
+            </form>
+        </section>
+
+        <!-- PRODUCT TABLE -->
+        <section class="product-table-stats">
+            <h2>Analysis Information</h2>
+
+            <table>
+                <tr>
+                    <th>Methodology</th>
+                    <th>Reviews Detected</th>
+                    <th>Score for Product</th>
+                </tr>
+                <tr>
+                    <td>Rating Value Anomaly</td>
+                    <td> {{ totalRatingAnomalies }} </td>
+                    <td> {{ ratingAnomalyRate }} </td>
+                </tr>
+                <tr>
+                    <td>Review Count Anomaly</td>
+                    <td> {{ totalReviewAnomalies }}</td>
+                    <td> {{ reviewAnomalyRate }} </td>
+                </tr>
+                <tr>
+                    <td>Incentivized Reviews</td>
+                    <td> {{ totalIncentivized }} </td>
+                    <td> {{ incentivizedRatio }}</td>
+                </tr>
+                <tr>
+                    <td>Duplicate Reviews</td>
+                    <td> {{ totalDuplicate }} </td>
+                    <td> {{ duplicateRatio }}</td>
+                </tr> 
+            </table>   
+        </section>
+
+        <!-- PRODUCT FIGURE -->
+        <section class="figure">
+            <h2> Analysis Graphs </h2>
+            <img src="data:image/png;base64, {{ figure|safe }}">
+        </section>
+    </article>
 {% endblock %}

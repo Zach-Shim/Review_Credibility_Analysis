@@ -59,6 +59,16 @@ def index(request):
 
 
 
+
+def search_link(request):
+    context = {
+    
+    }
+    # Render the HTML template index.html with the data in the context variable
+    return render(request, 'search_link.html', context)
+
+
+
 """View function for home page of site."""
 def about(request):
     context = {
@@ -115,12 +125,12 @@ def result(request, product_ASIN):
     # Calculate Review Anomaly Rate and Interval/range of review posting dates 
     review_anomaly = ReviewAnomaly()
     reviewAnomalyRate = review_anomaly.detect(product_ASIN)
-    totalReviewAnomalies = len(review_anomaly.review_anomalies['anoms']['anoms'])
+    totalReviewAnomalies = review_anomaly.review_anomalies
 
     # Calculate Rating Anomaly Rate and Interval/range of review posting dates 
     rating_anomaly = RatingAnomaly()
     ratingAnomalyRate = rating_anomaly.detect(product_ASIN)
-    totalRatingAnomalies = len(rating_anomaly.rating_anomalies['anoms']['anoms'])
+    totalRatingAnomalies = rating_anomaly.rating_anomalies
 
     # Calculate Number of Reviews and Date Range for Given Product
     reviewsForProduct = Review.objects.filter(asin=product_ASIN).count()

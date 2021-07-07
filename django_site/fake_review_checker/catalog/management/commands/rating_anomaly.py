@@ -67,9 +67,12 @@ class RatingAnomaly(Anomaly):
 
     def detect(self, product_ASIN):
         self.rating_anomalies = self.detect_anomalies(product_ASIN)
-        return self.calculate(len(self.rating_anomalies['anoms']['anoms']), Review.objects.filter(asin=self.product_ASIN).count())
+        print(self.rating_anomalies)
+        return self.calculate(self.rating_anomalies, Review.objects.filter(asin=self.product_ASIN).count())
 
     # accepts total number of anomalies and total number of anomalies (anomaly score = number of anomalies / total number of reviews)
     def calculate(self, fake_reviews, total):
-        Product.objects.filter(asin=self.product_ASIN).update(ratingAnomalyRate=round(fake_reviews / total * 100, 2))
+        anomaly_rate = round(fake_reviews / total * 100, 2)
+        Product.objects.filter(asin=self.product_ASIN).update(ratingAnomalyRate=anomaly_rate)
+        return anomaly_rate
 
