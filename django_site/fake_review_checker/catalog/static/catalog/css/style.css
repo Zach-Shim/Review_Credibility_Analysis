@@ -114,9 +114,10 @@ section {
 	grid-row: 1;
 }
 
-.category_form select {
+.category_form #id_category_choice {
 	width: 100px;
-	height: 25px;
+	height: 30px;
+	-webkit-appearance: menulist-button;
 }
 
 .asin_form {
@@ -126,7 +127,8 @@ section {
 
 .asin_form input {
 	width: 300px;
-	height: 25px;
+	height: 30px;
+	border: 1px solid rgb(53, 6, 6);
 }
 
 .error_form {
@@ -145,7 +147,9 @@ section {
 
 .submit_form button {
 	width: 75px;
-	height: 25px;
+	height: 30px;
+	border: 1px solid rgb(53, 6, 6);
+	-webkit-appearance: button;
 }
 /* -------------------------------------- features -------------------------------------- */
 

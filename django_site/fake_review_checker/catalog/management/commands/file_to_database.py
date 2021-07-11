@@ -7,7 +7,7 @@ import time
 import zlib
 import os
 from pandas import read_json
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, exc
 
 # Django Imports
 from django.contrib.auth.models import User
@@ -42,19 +42,16 @@ class Command(BaseCommand):
 
 
 
-
 class FileToDatabase():
-
     def __init__(self):
-        self.entry_name = ""
+        self.engine = create_engine('sqlite:////' + __db_location__, echo=False)                     # can change first param to ':memory:' to store in RAM instead of disk, change echo to echo=True if you want to see description of exporting to sqlite
+        self.sqlite_connection = self.engine.connect()                                                    # https://www.fullstackpython.com/blog/export-pandas-dataframes-sqlite-sqlalchemy.html
 
     def serialize(self, table_name):
         # parse through every file name in directory 5_core
         entries = os.scandir(__json_location__)
-
         for entry in entries:
-            self.entry_name = entry.name
-            print("Process file: " + str(self.entry_name))  
+            print("Process file: " + str(entry.name))  
             if entry.name == '.DS_Store':
                 continue
 
@@ -62,8 +59,15 @@ class FileToDatabase():
             serializer = self._get_serializer(table_name)
             df = serializer(df)
 
+            # Export data frame to sqlite database
+            df = df.applymap(str)
+
             # push the data frame to the database
-            u_conn = self.json_to_database(table_name, df)
+            try:
+                df.to_sql(table_name, self.sqlite_connection, if_exists='append', index=False, method='multi')                          # use 'append' to keep duplicate reviews
+            except exc.IntegrityError as e:
+                print(str(e))
+                pass
     
     # creator component
     def _get_serializer(self, table_name):           
@@ -78,11 +82,11 @@ class FileToDatabase():
 
     # serliazes user categories (updates old json format with new attributes needed for the db)
     def _serialize_to_user(self, df):
-        # only keep the columns we need according to the schema in user_columns; fill in extra attributes not present in json files 
-        df = df[user_columns]
-        df.drop_duplicates(subset=["reviewerID"], inplace=True) 
-        df.fillna(value="", inplace=True)
-        return df
+        # only keep the columns we need according to the schema in user_columns;
+        user_info = df.loc[:, user_columns]
+        user_info.dropna(axis=0, how="any", inplace=True)
+        user_info.drop_duplicates(subset=["reviewerID"], inplace=True)    
+        return user_info
     
     # serliazes product categories (updates old json format with new attributes needed for the db)
     def _serialize_to_product(self, df):
@@ -92,7 +96,9 @@ class FileToDatabase():
         df["incentivizedRatio"] = 0.0
         df["ratingAnomalyRate"] = 0.0
         df["reviewAnomalyRate"] = 0.0
-        df = df[product_columns]
+
+        # only keep the columns we need according to the schema in user_columns;
+        df = df.loc[:, product_columns]
         df.drop_duplicates(subset=["asin"], inplace=True)
         return df
 
@@ -102,27 +108,9 @@ class FileToDatabase():
         df["minHash"] = ""
         df["duplicate"] = 0
         df["incentivized"] = 0
-        df = df[review_columns]
+
+        # only keep the columns we need according to the schema in user_columns;
+        df = df.loc[:, review_columns]
         return df
 
-    '''
-    Description:
-        Export a json file to a sqlite3 db
-    Parameters:
-        path: absolute path of db file
-    Return:
-        None
-    '''
-    def json_to_database(self, table_name, df):    
-        # Export data frame to sqlite database
-        print("Data Frame:")
-        print(df)
-        print("DB Location:")
-        print(__db_location__)
-
-        df = df.applymap(str)
-        engine = create_engine('sqlite:////' + __db_location__, echo=False)                     # can change first param to ':memory:' to store in RAM instead of disk, change echo to echo=True if you want to see description of exporting to sqlite
-        sqlite_connection = engine.connect()                                                    # https://www.fullstackpython.com/blog/export-pandas-dataframes-sqlite-sqlalchemy.html
-        sqlite_table = table_name
-        df.to_sql(sqlite_table, sqlite_connection, if_exists='append', index=False)                          # use 'append' to keep duplicate reviews
-
+  
