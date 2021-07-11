@@ -43,24 +43,22 @@ def index(request):
             print("redirecting...")
             return HttpResponseRedirect(reverse('result', args=[asin_form.cleaned_data['asin_choice']]))
         
-        # autocomplete
-        if 'term' in request.GET and request.GET['term']:
-            '''
-            titles = []
-            if 'category_choice' in request.GET and request.GET['category_choice']:
-                val = request.GET['category_choice']
-                breakpoint()
-                [product.asin for product in Product.objects.filter(asin__istartswith=request.GET['term'], category=request.GET['category_choice'])]
+        # autocomplete feature
+        if 'asin_id' in request.GET and request.GET['asin_id']:
+            products = Product.objects.none()
+            if 'category_id' in request.GET and request.GET['category_id']:
+                products = Product.objects.filter(asin__istartswith=request.GET['asin_id'], category=request.GET['category_id'])
             else:
-                [product.asin for product in Product.objects.filter(asin__istartswith=request.GET['term'])]
-            '''
-            count = 0
+                products = Product.objects.filter(asin__istartswith=request.GET['asin_id'])
+            
+            max_count = 8
+            current_count = 0
             titles = []
             # show first eight products that begin with user's input
-            for product in Product.objects.filter(asin__istartswith=request.GET['term']):
-                if count < 8:
+            for product in products:
+                if current_count < max_count:
                     titles.append(product.asin)
-                    count += 1
+                    current_count += 1
                 else:
                     break
             return JsonResponse(titles, safe=False)

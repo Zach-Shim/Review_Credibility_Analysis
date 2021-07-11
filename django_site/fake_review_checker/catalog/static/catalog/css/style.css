@@ -86,10 +86,14 @@ section {
 	font-size: 2.5em;
 }
 
-.search h1 + p {
+.search p {
 	/* box dimensions */
 	margin-top: 0;
-	margin-bottom: 20px;
+	margin-bottom: 10px;
+}
+
+.search p + p {
+	margin-bottom: 50px;
 }
 
 .search form {
@@ -128,11 +132,10 @@ section {
 .error_form {
 	grid-column: 4 / 10;
 	grid-row: 2;
-}
-
-.error_form .errorList li{
+	margin-top: 10px;
 	list-style: none;
 	padding-left: none;
+	color: rgb(205, 4, 4);
 }
 
 .submit_form {

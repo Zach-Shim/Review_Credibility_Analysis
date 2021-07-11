@@ -8,7 +8,21 @@
         <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
         <script>
             $(function() {
-                $("#id_asin_choice").autocomplete( { source: "{% url 'index' %}" } );
+                $("#id_asin_choice").autocomplete({ 
+                    source: function(request, response) {
+                        $.ajax({
+                            url: "{% url 'index' %}",
+                            dataType: "json",
+                            data: {
+                                asin_id : request.term,
+                                category_id : $("#id_category_choice :selected").val()
+                            },
+                            success: function(data) {
+                                response(data);
+                            }
+                        });
+                    },
+                });
             });
         </script>
     </head>
@@ -28,10 +42,11 @@
 
     <!-- SEARCH -->
     <section class="search">
-        <h1> Search Analyzed Products </h1>
-        
-        <p> No need to wait for an analysis! Search our repository of analyzed products to see past scores. </p>
-        <p> Enter an asin into the search bar to get started </p>
+        <head>
+            <h1> Search Analyzed Products </h1>
+            <p> No need to wait for an analysis! Search our repository of analyzed products to see past scores. </p>
+            <p> Enter an asin into the search bar to get started </p>
+        </head>
 
         <form method="get">
             <div class="container">
@@ -39,7 +54,7 @@
                     {{ asin_form.category_choice }}
                 </div>
                 <div class="error_form">
-                    {{ asin_form.asin_choice.errors }}
+                    {{ asin_form.asin_choice.errors.as_text }}
                 </div>
                 <div class="asin_form">
                     {{ asin_form.asin_choice }}

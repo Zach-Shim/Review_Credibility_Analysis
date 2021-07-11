@@ -10,7 +10,7 @@ from .models import User, Product, Review
 
 class AsinForm(forms.Form):
     category_choice = forms.ModelChoiceField(label="", queryset=Product.objects.values_list('category', flat=True).distinct(), required=False, to_field_name='category', empty_label="(Category)")
-    asin_choice = forms.CharField(label="", max_length=30, required=True)
+    asin_choice = forms.CharField(label="", max_length=30, required=True, widget=forms.TextInput(attrs={'placeholder': 'Enter an asin'}))
 
     def clean_asin_choice(self):
         # get the cleaned version of the field data, and return it regardless if it is changed
