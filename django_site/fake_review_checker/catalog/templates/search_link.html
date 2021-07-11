@@ -21,14 +21,73 @@
         <p> Paste a link to an Amazon product to analyze it for fake reviews.
 
         <form method="get">
-            <label for="asin_choice">URL: </label>
-            <input id="asin_choice" type="text" name="asin_choice">
-            <input type="submit" value="Search">
+            <div class="container">
+                <div class="category_form">
+                    {{ link_form.category_choice }}
+                </div>
+                <div class="error_form">
+                    {{ link_form.asin_choice.errors }}
+                </div>
+                <div class="link_form">
+                    {{ link_form.asin_choice }}
+                </div>
+                <div class="submit_form">
+                    <button type="submit">Search</button>
+                </div>
+            </div>
         </form>
-    </section>           
+    </section>
+
+    <!-- FEATURES -->
+    <section class="features">
+        <!-- feature title -->
+        <div class="features-title">
+            <h2>Have Confidence In Your Next Purchase</h2>
+            <p>Avoid dishonest sellers and reviews for free. Fakespot uses a variety of text classification and
+                anomaly detection software algorithms to determine if seller reviews are fake.</p>
+        </div>
+
+        <div class="container">
+            <!-- feature 1 -->
+            <div class="features-list">
+                <h3> <i class="fa fa-clock-o"></i> Click of a button </h3>
+                <p>Analyze any review on Amazon with the click of a button. Simply copy and paste a link into our site, or search our repository for products we have already analyzed.</p>
+            </div>               
+
+            <!-- feature 2 -->
+            <div class="features-list">
+                <h3> <i class="fa fa-pie-chart"></i> Detailed Reports </h3>
+                <p>Get a detailed reports highlighting statistical analysis performed on a product of your choosing. Use this information to asisst in purchase decisions and avoid spam.</p>
+            </div>               
+
+            <!-- feature 3 -->
+            <div class="features-list">
+                <h3> <i class="fa fa-search"></i> Machine Learning </h3>
+                <p>Use a service backed by varying machine learning algorithms that target average rating anomalies, review timing anomalies, incentivized word count, and review text similarity.</p>
+            </div>          
+        </div>         
+    </section>
+
+    <!-- DESCRIPTION -->
+    <section class="description">
+        <!-- description image -->
+        <div class="description-pic">
+            {% load static %}
+            <img src="{% static 'images/description.jpg' %}" alt="image" class="img-responsive">
+        </div>	
+                
+        <!-- description content -->
+        <div class="description-text">
+            <h2>What is Fakeology?</h2>
+            <p> Fake reviews are a prominent issue that can significantly sway consumer purchase decisions. Therefore, many sellers will deliberately manipulate these reviews on their products and services to deceive possible buyers. </p>
+            <p> Several factors contribute to biased, faked, or even automated reviews for products. Our system has three stages that utilize a number of machine learning detection algorithms to analyze the review data of a product to generate a cumulative ‘fake score’. </p>
+            <p> These steps are duplicate review detection, detection of anomalies in review count and rating distributions over time, and incentivized review detection. </p>
+            <p> This service is intended to be used as an asset for consumers when making purchase decisions. </p>
+        </div>
+    </section>                  
 
     <!-- footer -->
-	<footer>
+    <footer>
         <!-- social links -->
         <div class="social text-center">
             <ul>
@@ -38,6 +97,5 @@
             </ul>
         </div>	
         <a href="#" class="scrollToTop"><i class="fa fa-arrow-circle-o-up"></i></a>
-	</footer>
-
+    </footer>
 {% endblock %}

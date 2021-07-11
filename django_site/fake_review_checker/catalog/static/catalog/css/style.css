@@ -40,6 +40,7 @@ body {
 
 .nav-buttons a {
 	margin: 1em;
+	cursor: pointer;
 }
 
 .nav-bar a:target {
@@ -64,33 +65,85 @@ body {
 /* -------------------------------------- search -------------------------------------- */
 
 section {
+	/* display flex layout */
 	display: flex;
 	flex-direction: column;
 }
 
 /* style search bar */
 .search {
+	/* box dimensions */
 	border-bottom: 1px solid rgba(0, 0, 0, 0.139);
 	padding-bottom: 100px;
 }
 
 .search h1 {
+	/* box dimensions */
 	margin-top: 100px;
 	margin-bottom: 10px;
+
+	/* text */
 	font-size: 2.5em;
 }
 
 .search h1 + p {
+	/* box dimensions */
 	margin-top: 0;
-	margin-bottom: 40px;
+	margin-bottom: 20px;
 }
 
-.search form #asin_choice {
-	width: 50%;
-	height: 30px;
-	font-size: 14pt;
+.search form {
+	/* box dimensions */
+    margin: 0 auto;
+	width: 600px;
+    padding-top: 0;
 }
 
+.container {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+	grid-template-rows: repeat(3, 25px);
+}
+
+.category_form {
+	grid-column: 2 / 3;
+	grid-row: 1;
+}
+
+.category_form select {
+	width: 100px;
+	height: 25px;
+}
+
+.asin_form {
+	grid-column: 4 / 7;
+	grid-row: 1;
+}
+
+.asin_form input {
+	width: 300px;
+	height: 25px;
+}
+
+.error_form {
+	grid-column: 4 / 10;
+	grid-row: 2;
+}
+
+.error_form .errorList li{
+	list-style: none;
+	padding-left: none;
+}
+
+.submit_form {
+	grid-column: 10 / 11;
+	grid-row: 1;
+}
+
+.submit_form button {
+	width: 75px;
+	height: 25px;
+}
 /* -------------------------------------- features -------------------------------------- */
 
 .features {
