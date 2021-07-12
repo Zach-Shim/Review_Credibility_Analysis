@@ -75,6 +75,7 @@ class Review(models.Model):
     asin = models.ForeignKey(Product, on_delete = models.CASCADE, db_column = "asin")
 
     # attributes
+    reviewID = models.IntegerField(primary_key=True)
     reviewText = models.TextField()
     overall = models.IntegerField(choices = ((1, 1), (2, 2), (3, 3), (4, 4), (5, 5)))
     unixReviewTime = models.IntegerField()
@@ -84,10 +85,11 @@ class Review(models.Model):
 
     # Metadata
     class Meta:
-        db_table = 'review'
         constraints = [
-            models.UniqueConstraint(fields=['reviewerID', 'asin', 'id'], name='unique_review'),
+            models.UniqueConstraint(fields=['reviewerID', 'asin', 'reviewID'], name='unique_review'),
         ]
+        db_table = 'review'
+
 
     # Methods
     def get_absolute_url(self):

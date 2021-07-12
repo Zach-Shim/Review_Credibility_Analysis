@@ -15,7 +15,7 @@
                             dataType: "json",
                             data: {
                                 asin_id : request.term,
-                                category_id : $("#id_category_choice :selected").val()
+                                category_id : $("#id_category_choice :selected").text()
                             },
                             success: function(data) {
                                 response(data);
