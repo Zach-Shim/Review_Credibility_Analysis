@@ -32,32 +32,44 @@ from .management.commands.similarity import Similarity
 
 """View function for home page of site."""
 def index(request):
-    # Create a form instance and populate it with data from the request (binding):
-    form = AsinForm(request.GET)
+    # Create a dropdown and text input form instances and populate them with data from the request (binding)
+    asin_form = AsinForm(request.GET)
 
     # when a user types in the search box, autocomplete the first 10 product asin options from their input
     if request.method == 'GET':
-        if form.is_valid():
+
+        if asin_form.is_valid():
             # redirect to a new URL (result view):
             print("redirecting...")
-            return HttpResponseRedirect(reverse('result', args=[form.cleaned_data['asin_choice']]) )
+            return HttpResponseRedirect(reverse('result', args=[asin_form.cleaned_data['asin_choice']]))
         
-        if 'term' in request.GET:
-            print("getting autofill options...")
-            titles = [product.asin for product in Product.objects.filter(asin__istartswith=request.GET.get('term'))]
-            return JsonResponse(titles[0:10], safe=False)
-    else:
-        print("making form")
-        form = AsinForm(initial={'asin_choice': ''})
+        # autocomplete feature
+        if 'asin_id' in request.GET and request.GET['asin_id']:
+            category_name = "All Categories"
+            products = Product.objects.none()
+            if 'category_id' in request.GET and request.GET['category_id'] and request.GET['category_id'] != "(Category)":
+                category_name = request.GET['category_id']
+                products = Product.objects.filter(asin__istartswith=request.GET['asin_id'], category=request.GET['category_id'])
+            else:
+                products = Product.objects.filter(asin__istartswith=request.GET['asin_id'])
+            
+            max_count = 8
+            current_count = 0
+            titles = []
+            # show first eight products that begin with user's input
+            for product in products:
+                if current_count < max_count:
+                    titles.append(category_name + ": "  + str(product.asin))
+                    current_count += 1
+                else:
+                    break
+            return JsonResponse(titles, safe=False)
 
-    context = {
-        'form': form,
-    }
+    else:
+        asin_form = AsinForm()
 
     # Render the HTML template index.html with the data in the context variable
-    return render(request, 'index.html', context)
-
-
+    return render(request, 'index.html', {"asin_form": asin_form})
 
 
 def search_link(request):

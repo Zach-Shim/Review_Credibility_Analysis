@@ -1,6 +1,32 @@
 {% extends "base.html" %}
 
 {% block content %}
+    <!-- HEAD -->
+    <head>
+        <!-- Autocomplete feature for search bar-->
+        <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+        <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+        <script>
+            $(function() {
+                $("#id_asin_choice").autocomplete({ 
+                    source: function(request, response) {
+                        $.ajax({
+                            url: "{% url 'index' %}",
+                            dataType: "json",
+                            data: {
+                                asin_id : request.term,
+                                category_id : $("#id_category_choice :selected").text()
+                            },
+                            success: function(data) {
+                                response(data);
+                            }
+                        });
+                    },
+                });
+            });
+        </script>
+    </head>
+    
     <!-- NAVIGATION -->
     <nav class="nav-bar">
         <div class="logo">
@@ -16,15 +42,27 @@
 
     <!-- SEARCH -->
     <section class="search">
-        <h1> Search Analyzed Products </h1>
-        
-        <p> No need to wait for an analysis! Search our repository of analyzed products to see past scores. </p>
-        <p> Enter an asin into the search bar to get started </p>
+        <head>
+            <h1> Search Analyzed Products </h1>
+            <p> No need to wait for an analysis! Search our repository of analyzed products to see past scores. </p>
+            <p> Enter an asin into the search bar to get started </p>
+        </head>
 
         <form method="get">
-            <label for="asin_choice">Product ASIN: </label>
-            <input id="asin_choice" type="text" name="asin_choice">
-            <input type="submit" value="Search">
+            <div class="container">
+                <div class="category_form">
+                    {{ asin_form.category_choice }}
+                </div>
+                <div class="error_form">
+                    {{ asin_form.asin_choice.errors.as_text }}
+                </div>
+                <div class="asin_form">
+                    {{ asin_form.asin_choice }}
+                </div>
+                <div class="submit_form">
+                    <button type="submit">Search</button>
+                </div>
+            </div>
         </form>
     </section>
 
