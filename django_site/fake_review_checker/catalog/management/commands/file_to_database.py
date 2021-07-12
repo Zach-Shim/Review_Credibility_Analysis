@@ -44,13 +44,17 @@ class Command(BaseCommand):
 
 class FileToDatabase():
     def __init__(self):
+        self.entry_name = ""
         self.engine = create_engine('sqlite:////' + __db_location__, echo=False)                     # can change first param to ':memory:' to store in RAM instead of disk, change echo to echo=True if you want to see description of exporting to sqlite
         self.sqlite_connection = self.engine.connect()                                                    # https://www.fullstackpython.com/blog/export-pandas-dataframes-sqlite-sqlalchemy.html
+
+
 
     def serialize(self, table_name):
         # parse through every file name in directory 5_core
         entries = os.scandir(__json_location__)
         for entry in entries:
+            self.entry_name = entry.name
             print("Process file: " + str(entry.name))  
             if entry.name == '.DS_Store':
                 continue
@@ -69,6 +73,8 @@ class FileToDatabase():
                 print(str(e))
                 pass
     
+
+
     # creator component
     def _get_serializer(self, table_name):           
         if table_name == "user":
@@ -80,6 +86,8 @@ class FileToDatabase():
         else:
             raise ValueError("Please enter the name of an existing table in the db.sqlite3 database")
 
+
+
     # serliazes user categories (updates old json format with new attributes needed for the db)
     def _serialize_to_user(self, df):
         # only keep the columns we need according to the schema in user_columns;
@@ -87,6 +95,8 @@ class FileToDatabase():
         user_info.dropna(axis=0, how="any", inplace=True)
         user_info.drop_duplicates(subset=["reviewerID"], inplace=True)    
         return user_info
+    
+
     
     # serliazes product categories (updates old json format with new attributes needed for the db)
     def _serialize_to_product(self, df):
