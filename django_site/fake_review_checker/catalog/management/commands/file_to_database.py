@@ -1,10 +1,6 @@
 import json
-import operator
 import pandas as pd
-import json
 import sqlite3
-import time
-import zlib
 import os
 import numpy as np
 from pandas import read_json
@@ -46,7 +42,6 @@ class Command(BaseCommand):
 
 class FileToDatabase():
     def __init__(self):
-
         self.engine_connection = create_engine('sqlite:////' + __db_location__, echo=False).connect()                     # can change first param to ':memory:' to store in RAM instead of disk, change echo to echo=True if you want to see description of exporting to sqlite
         
         self.entry_name = ""
@@ -61,7 +56,7 @@ class FileToDatabase():
         entries = os.scandir(__json_location__)
         for entry in entries:
             self.entry_name = entry.name
-            print("Process file: " + str(entry.name))  
+            print("Processing file: " + str(entry.name))  
             if entry.name == '.DS_Store':
                 continue
 
@@ -145,6 +140,8 @@ class FileToDatabase():
         df.drop_duplicates(subset=["asin"], inplace=True)
         return df
 
+
+
     # serliazes review categories (updates old json format with new attributes needed for the db
     def _serialize_to_review(self, df):
         # fill in extra attributes not present in json files 
@@ -160,6 +157,7 @@ class FileToDatabase():
         #breakpoint()
         df = df.loc[:, review_columns]
         return df
+
 
 
     def _add_id(self, df):

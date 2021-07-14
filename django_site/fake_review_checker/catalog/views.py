@@ -45,10 +45,8 @@ def index(request):
         
         # autocomplete feature
         if 'asin_id' in request.GET and request.GET['asin_id']:
-            category_name = "All Categories"
             products = Product.objects.none()
             if 'category_id' in request.GET and request.GET['category_id'] and request.GET['category_id'] != "(Category)":
-                category_name = request.GET['category_id']
                 products = Product.objects.filter(asin__istartswith=request.GET['asin_id'], category=request.GET['category_id'])
             else:
                 products = Product.objects.filter(asin__istartswith=request.GET['asin_id'])
@@ -59,7 +57,7 @@ def index(request):
             # show first eight products that begin with user's input
             for product in products:
                 if current_count < max_count:
-                    titles.append(category_name + ": "  + str(product.asin))
+                    titles.append(product.asin)
                     current_count += 1
                 else:
                     break

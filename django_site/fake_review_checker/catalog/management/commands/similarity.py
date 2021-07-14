@@ -5,13 +5,11 @@
 
 # Standard library imports
 import datetime
-import math
 import matplotlib.pyplot as plt, mpld3
 import matplotlib
 matplotlib.use("TkAgg")
 import numpy as np
 import operator
-import sys
 
 # Django Imports
 from django.contrib.auth.models import User
@@ -29,18 +27,29 @@ from .detection_algorithms import DetectionAlgorithms
 class Command(BaseCommand):
     help = 'Get product similarity scores'
     
+    def add_arguments(self, parser):
+        parser.add_argument('asin', type=str, nargs='?', help='run similarity on a specific product asin')
+        parser.add_argument('-a', '--all', action='store_true', help='Run similarity on all products')
+
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):        
+        asin = kwargs['asin']
         similarity = Similarity()
-        #similarity.invert_index()
-        #similarity.compare_all_hashes()
 
-        similarity.detect("B001LHVOVK")
-        fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
-        fig.subplots_adjust(wspace=0.5)
-        similarity.plot(ax1)
-        plt.show()
-        
+        if kwargs['all']:
+            # run on entire database (takes a really long time if database is large because it has to cross check data)
+            similarity.invert_index()
+            similarity.compare_all_hashes()
+        elif kwargs['asin']:
+            # run on specific product asin (uncomment this section and commment out above two lines)
+            similarity.detect(asin)
+            fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
+            fig.subplots_adjust(wspace=0.5)
+            similarity.plot(ax1)
+            plt.show()
+        else:
+            print("Please enter an asin, or enter the -a command")
+
 
 
 # Calculates the similarity score for a given Product's Reviews
@@ -65,12 +74,12 @@ class Similarity(DetectionAlgorithms):
     # store bigram numHash {index: bigram: review} in dictionary for efficiency
     def invert_index(self):
         review_count = 0
-        for review in Review.objects.values('id', 'minHash'):
+        for review in Review.objects.values('reviewID', 'minHash'):
             bigram_hash = review['minHash'].split(",")
             for i in range(0, self.num_of_hashes):
                 key = int(bigram_hash[i])
                 self.dictList[i].setdefault(key, [])
-                self.dictList[i][key].append(review['id'])         # all reviews that share this key(bigram) are appended to the list
+                self.dictList[i][key].append(review['reviewID'])         # all reviews that share this key(bigram) are appended to the list
             review_count += 1
             if review_count % 10000 == 0:
                 print("\nLoading " + str(datetime.datetime.now()) + " " + str(review_count))
@@ -84,7 +93,7 @@ class Similarity(DetectionAlgorithms):
         review_num = 1
         queries_to_update = []
 
-        for review in Review.objects.values('id', 'asin', 'minHash'):
+        for review in Review.objects.values('reviewID', 'minHash'):
             if review_num % 1000 == 0:
                 print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num))
 
@@ -108,7 +117,7 @@ class Similarity(DetectionAlgorithms):
             for x in sorted_matched_keys:
                 #print ("Max hash matches for " + str(review_num) + " is " + str(x[1]))
                 estJ = (x[1] / self.num_of_hashes)
-                if x[0] == review['id']:
+                if x[0] == review['reviewID']:
                     continue
                 if estJ > self.threshold:
                     queries_to_update.append(x[0])
@@ -121,12 +130,13 @@ class Similarity(DetectionAlgorithms):
 
 
 
-    # accepts a list of review id's to update
+    # accepts a list of reviewID's to update
     def _update_db(self, queries_to_update):
         print("\nPushing to database " + str(datetime.datetime.now()) + " start")
         for review in queries_to_update:
-            obj = Review.objects.filter(id=review).update(duplicate=1)
+            obj = Review.objects.filter(reviewID=review).update(duplicate=1)
         print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
+
 
 
     # used to identify all duplicate reviews for a single product (used dynamically)

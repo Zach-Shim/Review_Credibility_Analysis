@@ -92,20 +92,20 @@ class Incentivized(DetectionAlgorithms):
         self.product_ASIN = product_ASIN
         self.words_re = re.compile("|".join(self.completeKeyPhraseList))
         queries_to_update = []
-        for review in Review.objects.filter(asin=self.product_ASIN).values('id', 'reviewText'):
+        for review in Review.objects.filter(asin=self.product_ASIN).values('reviewID', 'reviewText'):
             if self.words_re.search(review['reviewText']):
-                queries_to_update.append(review['id'])
+                queries_to_update.append(review['reviewID'])
         self._update_db(queries_to_update)
 
         return self.calculate(len(queries_to_update), Review.objects.filter(asin=self.product_ASIN).count())
 
 
 
-    # accepts a list of review id's to update
+    # accepts a list of reviewID's to update
     def _update_db(self, queries_to_update):
         print("\nPushing to database " + str(datetime.datetime.now()) + " start")
         for review in queries_to_update:
-            obj = Review.objects.filter(id=review).update(incentivized=1)
+            obj = Review.objects.filter(reviewID=review).update(incentivized=1)
         print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
 
 
