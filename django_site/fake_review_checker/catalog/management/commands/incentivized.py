@@ -1,7 +1,5 @@
 # Python Imports 
-from collections import defaultdict
 import datetime
-import math
 import matplotlib.pyplot as plt, mpld3
 import matplotlib
 matplotlib.use("TkAgg")
@@ -15,7 +13,6 @@ import scipy.stats as stats
 # Django Imports
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.utils.crypto import get_random_string
 
 # Relative Imports
 from ...models import User, Product, Review

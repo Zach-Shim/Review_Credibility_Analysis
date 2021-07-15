@@ -9,16 +9,11 @@ import random
 import time
 import binascii
 import datetime
-import csv
-import sys
-import os
-import operator
 import sqlite3
 
 # Django Imports
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.utils.crypto import get_random_string
 
 # Relative Imports
 from ...models import User, Product, Review

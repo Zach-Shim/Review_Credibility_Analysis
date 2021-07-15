@@ -1,4 +1,3 @@
-import json
 import pandas as pd
 import sqlite3
 import os
@@ -9,8 +8,6 @@ from sqlalchemy import create_engine, exc
 # Django Imports
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.utils.crypto import get_random_string
-from django.conf import settings
 
 # Relative Imports
 from ...models import User, Product, Review
@@ -70,7 +67,7 @@ class FileToDatabase():
     def df_to_database(self, table_name, df):
         # push the data frame to the database
         try:
-            df.to_sql(table_name, self.engine_connection, if_exists='append', index=False, method='multi', chunksize=500)                          # use 'append' to keep duplicate reviews
+            df.to_sql(table_name, self.engine_connection, if_exists='replace', index=False, method='multi', chunksize=500)                          # use 'append' to keep duplicate reviews
         except exc.IntegrityError as e:
             self.replace(table_name, df)
 

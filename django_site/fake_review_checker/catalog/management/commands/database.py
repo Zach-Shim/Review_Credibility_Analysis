@@ -5,7 +5,6 @@ import sqlite3
 # Django Imports
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.utils.crypto import get_random_string
 
 # Relative Imports
 from ...models import User, Product, Review
@@ -31,6 +30,7 @@ class Command(BaseCommand):
         parser.add_argument('-sa', '--select_all', action='store_true', help='Query all records from all tables (User, Product, and Review)')
         parser.add_argument('-i', '--insert', action='store_true', help='Insert all records from a given directory')
         parser.add_argument('-ia', '--insert_all', action='store_true', help='Insert all records into all tables (User, Product, and Review). Data is taken from a local directory')
+        
 
 
     def handle(self, *args, **kwargs):
@@ -43,7 +43,7 @@ class Command(BaseCommand):
                 table = kwargs['table_name']
             except Exception as e:
                 print(e)
-                print("Please enter a table name preceding the sql command")
+                raise ValueError("Please enter a table name preceding the sql command. Type --help for a list of all commands.")
             command(table)
             
 
@@ -85,7 +85,7 @@ class Database():
             self.all = True
             return self.insert_all
         else:
-            raise ValueError("Please enter the name of an existing table in the db.sqlite3 database")
+            raise ValueError("Please enter a valid command. Enter --help to see all commands.")
 
 
 
