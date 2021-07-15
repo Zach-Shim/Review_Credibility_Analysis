@@ -16,6 +16,8 @@ subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyculiarity'])
 subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'requests'])
 subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'scipy'])
 subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sqlalchemy'])
+subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'scikit-learn'])
+subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sklearn'])
 subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'regex'])
 
 
