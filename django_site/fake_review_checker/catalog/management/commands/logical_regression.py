@@ -1,7 +1,18 @@
 # Python Imports
 import matplotlib.pyplot as plt, mpld3
 import numpy as np
-import sklearn
+import pandas as pd
+
+import nltk
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix
 
 # Django Imports
 from django.contrib.auth.models import User
@@ -22,7 +33,7 @@ class Command(BaseCommand):
 
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):        
-        asin = kwargs['asin']
+        asin = kwargs['product_ASIN']
         regression = LogicalRegression()
 
         # run on specific product asin
@@ -39,13 +50,15 @@ class LogicalRegression(DetectionAlgorithms):
 
 
     def detect(self, product_ASIN):
+        df = pd.DataFrame(list(Review.objects.all().values('reviewText')))
+            
+
         pass
 
 
 
     def train(self, product_ASIN):
-        sklearn.model_selection.train_test_split(*arrays, **options) 
-
+        pass
 
 
 

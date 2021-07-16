@@ -1,4 +1,4 @@
-#!/Users/zshim/Desktop/Projects/Fake_Review_Checker/env/bin/python3
+#!/Users/zshim/Desktop/Projects/Fake_Review_Checker/env/bin/python3.9
 # When the django-admin.py deprecation ends, remove this script.
 import warnings
 
