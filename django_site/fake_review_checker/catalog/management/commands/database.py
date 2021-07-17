@@ -153,13 +153,12 @@ class Database():
     
 
     def insert(self, table_name):
-        print("inserting data")
         ftd = FileToDatabase()
         ftd.serialize(table_name)
 
     
 
     def insert_all(self):
-        print("querying from all tables")
+        print("inserting data into all tables")
         for table in self.tables:
             self.insert(table)

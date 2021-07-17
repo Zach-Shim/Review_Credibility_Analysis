@@ -5,11 +5,13 @@
 
 # Standard library imports
 import datetime
+import numpy as np
+import operator
+
+# Python Dependency Library Imports
 import matplotlib.pyplot as plt, mpld3
 import matplotlib
 matplotlib.use("TkAgg")
-import numpy as np
-import operator
 
 # Django Imports
 from django.contrib.auth.models import User

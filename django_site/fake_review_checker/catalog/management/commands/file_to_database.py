@@ -1,3 +1,4 @@
+# Python Standard Library Imports
 import pandas as pd
 import sqlite3
 import os
@@ -53,7 +54,7 @@ class FileToDatabase():
         entries = os.scandir(__json_location__)
         for entry in entries:
             self.entry_name = entry.name
-            print("Processing file: " + str(entry.name))  
+            #print("Processing file: " + str(entry.name))  
             if entry.name == '.DS_Store':
                 continue
 
@@ -115,6 +116,7 @@ class FileToDatabase():
     # serliazes user categories (updates old json format with new attributes needed for the db)
     def _serialize_to_user(self, df):
         # only keep the columns we need according to the schema in user_columns;
+        print("inserting data into user...")
         user_info = df.loc[:, user_columns]
         #user_info.dropna(axis=0, how="any", inplace=True)
         user_info.fillna("", inplace=True)
@@ -126,6 +128,7 @@ class FileToDatabase():
     # serliazes product categories (updates old json format with new attributes needed for the db)
     def _serialize_to_product(self, df):
         # fill in extra attributes not present in json files 
+        print("inserting data into product...")
         df["category"] = self.entry_name[:-7]
         df["duplicateRatio"] = 0.0
         df["incentivizedRatio"] = 0.0
@@ -142,25 +145,18 @@ class FileToDatabase():
     # serliazes review categories (updates old json format with new attributes needed for the db
     def _serialize_to_review(self, df):
         # fill in extra attributes not present in json files 
+        print("inserting data into review...")
         df["minHash"] = ""
         df["duplicate"] = 0
         df["incentivized"] = 0
-        df = self._add_id(df)
-
-        # only keep the columns we need according to the schema in user_columns;
+        df['reviewID'] = self._add_id(df)                       # create unique id's for each review
         
-        #df.dropna(axis=0, subset=['reviewerName'], inplace=True)
-        print(df)
-        #breakpoint()
         df = df.loc[:, review_columns]
         return df
 
 
 
     def _add_id(self, df):
-        # default current df's ids to all 0s
-        #df["reviewID"] = 0
-        
         # find current highest id in table
         existing = pd.read_sql(self.table_name, self.engine_connection)
         low_id = max_id = 0
@@ -171,11 +167,4 @@ class FileToDatabase():
             low_id = existing["reviewID"].max() + 1
             max_id = len(df) + low_id
 
-        df['reviewID'] = np.arange(low_id, max_id)
-
-        '''
-        # iterate over df and assign ids based on max id value from current table
-        for index, row in df.iterrows():
-            df.at[index, "reviewID"] = current_max_id + 1
-        '''
-        return df
+        return np.arange(low_id, max_id)
