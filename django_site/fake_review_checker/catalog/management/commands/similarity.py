@@ -148,3 +148,6 @@ class Similarity(DetectionAlgorithms):
         Product.objects.filter(asin=self.product_ASIN).update(duplicateRatio=dup_score)
         return dup_score
 
+
+    def set_info(self):
+        super(Similarity, self).set_info(Review.objects.filter(asin=self.product_ASIN, duplicate=1))  

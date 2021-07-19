@@ -51,7 +51,7 @@ class Command(BaseCommand):
 class RatingAnomaly(Anomaly):
 
     def __init__(self):
-        rating_anomalies = []
+        rating_anomalies = 0
 
         # invoking the constructor of the parent class  
         super(RatingAnomaly, self).__init__({"method": "mean", "title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"})  

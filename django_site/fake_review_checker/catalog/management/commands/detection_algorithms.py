@@ -26,7 +26,7 @@ class DetectionAlgorithms:
         self.review_day_range = 0
     
         # plotting info
-        self.series = []
+        self.series = pd.DataFrame()
 
 
 
@@ -43,15 +43,15 @@ class DetectionAlgorithms:
         bins = self.get_bins()
 
         # Place these metrics into even bins of values
-        review_count, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=self.graph_info['method'], bins=bins)
-        review_count = review_count[np.isfinite(review_count)]
+        value, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=self.graph_info['method'], bins=bins)
+        value = value[np.isfinite(value)]
 
-        # Get the timed intervals of each bin
+        # Get the timed intervals of each bin; convert timestamp string to datetime, then to unix timestamp integer
         bin_timestamps = [np.datetime64(datetime.datetime.fromtimestamp(x)) for x in bins]
-        review_count = self.compress_bins(review_count, bin_timestamps)
+        value = self.compress_bins(value, bin_timestamps)
 
         # Create data frame that will be translated to a subplot
-        graph_series = {"timestamp": bin_timestamps, "value": review_count}
+        graph_series = {"timestamp": bin_timestamps, "value": value}
         graph_frame = pd.DataFrame(graph_series)
 
         return graph_frame
@@ -76,8 +76,8 @@ class DetectionAlgorithms:
         y_axis = self.graph_info['y_axis'] 
         x_axis = self.graph_info['x_axis'] 
 
-        #print("current frame:")
-        #print(frame)
+        #print("current frame:\n", frame)
+
         dp = frame.plot(x='timestamp', y='value', title=title, kind='line', ax=subplot)
         dp.set_ylabel(y_axis)
         dp.set_xlabel(x_axis)
@@ -123,6 +123,8 @@ class DetectionAlgorithms:
                 bin_timestamps.pop()
                 rcl += 1
         
+
+
         ''' 
         print("review count after: " + str(len(review_count)))
         print("review_count")
@@ -153,22 +155,16 @@ class DetectionAlgorithms:
         bucket_count = math.ceil(review_range.days / 30)
         print("Product has reviews ranging " + str(self.review_day_range) + " days. Bucket count " + str(bucket_count))
         
-        # Returns num evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
+        # Returns num of evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
         return np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
        
     
 
-    def set_info(self):
-        reviews = {}
-        if 'Duplicate' in self.graph_info['title']:
-            reviews = Review.objects.filter(asin=self.product_ASIN, duplicate=1)
-        if 'Incentivized' in self.graph_info['title']:
-            reviews = Review.objects.filter(asin=self.product_ASIN, incentivized=1)
-
+    def set_info(self, reviews):
         unix_review_times = scores = []
-        for review in reviews:
-            unix_review_times.append(review.unixReviewTime)
-            scores.append(review.overall)
+        for review in reviews.values('unixReviewTime', 'overall').order_by('unixReviewTime'):
+            unix_review_times.append(review['unixReviewTime'])
+            scores.append(review['overall'])
         self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}
 
 

@@ -112,3 +112,8 @@ class Incentivized(DetectionAlgorithms):
         incentivized_score = round(fake_reviews / total * 100, 2)
         Product.objects.filter(asin=self.product_ASIN).update(incentivizedRatio=incentivized_score)
         return incentivized_score
+
+
+
+    def set_info(self):    
+        super(Incentivized, self).set_info(Review.objects.filter(asin=self.product_ASIN, incentivized=1))
