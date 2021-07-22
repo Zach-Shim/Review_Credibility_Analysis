@@ -255,6 +255,11 @@ footer .scrollToTop {
 }
 
 /* product table */
+.product-table-stats {
+	margin: 0 100px;
+}
+
+/* product table */
 .product-table-stats h2 {
 	margin-top: 60px;
 }

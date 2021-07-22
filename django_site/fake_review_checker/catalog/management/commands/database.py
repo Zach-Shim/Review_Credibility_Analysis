@@ -12,9 +12,7 @@ from .file_to_database import FileToDatabase
 
 # Global Directory Variables
 __current_dir__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-__json_location__ = __current_dir__[:-20] + "/datasets/"
 __db_location__ = __current_dir__[:-28] + "/db.sqlite3"
-
 
 
 class Command(BaseCommand):

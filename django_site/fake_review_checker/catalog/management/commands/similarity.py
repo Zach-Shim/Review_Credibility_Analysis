@@ -38,8 +38,7 @@ class Command(BaseCommand):
 
         if kwargs['all']:
             # run on entire database (takes a really long time if database is large because it has to cross check data)
-            similarity.invert_index()
-            similarity.compare_all_hashes()
+            similarity.detect_all()
         elif kwargs['asin']:
             # run on specific product asin (uncomment this section and commment out above two lines)
             similarity.detect(asin)
@@ -64,6 +63,7 @@ class Similarity(DetectionAlgorithms):
 
         # compare hashes
         self.threshold = 0.3
+        self.invert_index()
 
         # invoking the constructor of the parent class  
         graph_info = {"method": "count", "title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
@@ -89,8 +89,8 @@ class Similarity(DetectionAlgorithms):
 
 
     # compares a review's bigram hashes against other review's bigram hashses (takes the cross section of hashes in common)
-    def compare_all_hashes(self):
-        review_num = 1
+    def detect_all(self):
+        review_num = 0
         queries_to_update = []
 
         for review in Review.objects.values('reviewID', 'minHash'):

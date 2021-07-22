@@ -37,6 +37,8 @@ class Product(models.Model):
     # attributes
     asin = models.TextField(primary_key = True)
     category = models.TextField()
+    title = models.TextField(default="")
+    url = models.TextField(default="")
     duplicateRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     incentivizedRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     ratingAnomalyRate = models.DecimalField(max_digits=5, decimal_places=2, default = 0)

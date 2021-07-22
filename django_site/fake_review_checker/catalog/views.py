@@ -1,12 +1,10 @@
 # Python Imports
-import datetime
 import scipy.stats as stats
 import matplotlib.pyplot as plt, mpld3
 import matplotlib
 matplotlib.use("TkAgg")
 import numpy as np
 import pandas as pd
-import os
 
 from io import BytesIO
 import base64
@@ -21,7 +19,7 @@ from django.urls import reverse
 
 # Local Imports
 from .models import User, Product, Review
-from .forms import AsinForm
+from .forms import AsinForm, LinkForm
 from .management.commands.detection_algorithms import DetectionAlgorithms
 from .management.commands.incentivized import Incentivized
 from .management.commands.review_anomaly import ReviewAnomaly
@@ -70,12 +68,22 @@ def index(request):
     return render(request, 'index.html', {"asin_form": asin_form})
 
 
+
 def search_link(request):
-    context = {
-    
-    }
+    # Create a dropdown and text input form instances and populate them with data from the request (binding)
+    link_form = LinkForm(request.GET)
+
+    # when a user types in the search box, autocomplete the first 10 product asin options from their input
+    if request.method == 'GET':
+        if link_form.is_valid():
+            # redirect to a new URL (result view):
+            print("redirecting...")
+            return HttpResponseRedirect(reverse('result', args=[link_form.cleaned_data['asin_choice']]))
+    else:
+        link_form = LinkForm()
+
     # Render the HTML template index.html with the data in the context variable
-    return render(request, 'search_link.html', context)
+    return render(request, 'index.html', {"link_form": link_form})
 
 
 

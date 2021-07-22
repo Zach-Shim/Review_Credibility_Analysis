@@ -29,22 +29,25 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('asin', type=str, nargs='?', help='Indicates the asin of the product we are currently analyzing')
         parser.add_argument('-rating', '--rating', action='store_true', help='Calculate anomalies from ratings')
+        parser.add_argument('-rall', '--rating_all', action='store_true', help='Calculate anomalies from ratings')
         parser.add_argument('-review', '--review', action='store_true', help='Calculate anomalies from reviews')
+        parser.add_argument('-revall', '--review_all', action='store_true', help='Calculate anomalies from reviews')
 
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):
-        asin = ''
+        rating_anomaly = RatingAnomaly()
+        review_anomaly = ReviewAnomaly()
         if kwargs['asin']:
             asin = kwargs['asin']
+            if kwargs['rating']:
+                print(rating_anomaly.detect(asin))
+            elif kwargs['review']:
+                print(review_anomaly.detect(asin)) 
         else:
-            raise ValueError("Please enter an asin.")
-
-        if kwargs['rating']:
-            rating_anomaly = RatingAnomaly()   
-            print(rating_anomaly.detect(asin))
-        elif kwargs['review']:
-            review_anomaly = ReviewAnomaly()
-            print(review_anomaly.detect(asin)) 
+            if kwargs['rating_all']:
+                print(rating_anomaly.detect_all())
+            elif kwargs['review_all']:
+                print(review_anomaly.detect_all())   
 
         fig, (ax1) = plt.subplots(ncols=1, figsize=(11, 7))
         fig.subplots_adjust(wspace=0.5)
@@ -151,6 +154,10 @@ class RatingAnomaly(Anomaly):
         self.rating_anomalies = self.detect_anomalies(product_ASIN)
         return self.calculate(self.rating_anomalies, Review.objects.filter(asin=self.product_ASIN).count())
 
+    def detect_all(self):
+        for product in Product.objects.values('asin'):
+            self.detect(product['asin'])
+
     # accepts total number of anomalies and total number of anomalies (anomaly score = number of anomalies / total number of reviews)
     def calculate(self, fake_reviews, total):
         anomaly_rate = round(fake_reviews / total * 100, 2)
@@ -176,6 +183,10 @@ class ReviewAnomaly(Anomaly):
     def detect(self, product_ASIN):
         self.review_anomalies = self.detect_anomalies(product_ASIN)
         return self.calculate(self.review_anomalies, Review.objects.filter(asin=self.product_ASIN).count())
+
+    def detect_all(self):
+        for product in Product.objects.values('asin'):
+            self.detect(product['asin'])
 
     # accepts total number of anomalies and total number of anomalies (anomaly score = number of anomalies / total number of reviews)
     def calculate(self, fake_reviews, total):

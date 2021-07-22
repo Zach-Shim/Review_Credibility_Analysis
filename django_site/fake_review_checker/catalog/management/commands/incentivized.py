@@ -31,20 +31,27 @@ class Command(BaseCommand):
 
     # adds an argument to **kwards in the handle function
     def add_arguments(self, parser):
-        parser.add_argument('product_ASIN', type=str, help='Indicates the asin of the product we are currently analyzing')
+        parser.add_argument('asin', type=str, nargs='?', help='Indicates the asin of the product we are currently analyzing')
+        parser.add_argument('-a', '--all', action='store_true', help='Run similarity on all products')
 
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):
-        asin = kwargs['product_ASIN']
+        asin = kwargs['asin']
         incentivized = Incentivized()
-        incentivized.detect(asin)
         
-        fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
-        fig.subplots_adjust(wspace=0.5)
-        incentivized.plot(ax1)
-        plt.show()
+        if kwargs['all']:
+            # run on entire database (takes a really long time if database is large because it has to cross check data)
+            incentivized.detect_all()
+        elif kwargs['asin']:
+            # run on specific product asin (uncomment this section and commment out above two lines)
+            incentivized.detect(asin)
+            fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
+            fig.subplots_adjust(wspace=0.5)
+            incentivized.plot(ax1)
+            plt.show()
+        else:
+            print("Please enter an asin, or enter the -a command")
 
-        
 
 '''
     Description:
@@ -87,14 +94,33 @@ class Incentivized(DetectionAlgorithms):
     def detect(self, product_ASIN):
         # search each review in product_ASIN for incentivized keywords; incentivizedList is used for review_anomaly
         self.product_ASIN = product_ASIN
-        self.words_re = re.compile("|".join(self.completeKeyPhraseList))
-        queries_to_update = []
-        for review in Review.objects.filter(asin=self.product_ASIN).values('reviewID', 'reviewText'):
-            if self.words_re.search(review['reviewText']):
-                queries_to_update.append(review['reviewID'])
-        self._update_db(queries_to_update)
+        self.detect_helper(Review.objects.filter(asin=self.product_ASIN).values('reviewID', 'reviewText'))
 
         return self.calculate(len(queries_to_update), Review.objects.filter(asin=self.product_ASIN).count())
+
+
+
+    def detect_all(self):
+        self.detect_helper(Review.objects.values('reviewID', 'reviewText'))
+
+
+
+    def detect_helper(self, reviews):
+        review_num = 0
+        queries_to_update = []
+        self.words_re = re.compile("|".join(self.completeKeyPhraseList))
+
+        for review in reviews:
+            if self.words_re.search(review['reviewText']):
+                queries_to_update.append(review['reviewID'])
+
+            if review_num % 1000 == 0:
+                print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num))
+
+            review_num += 1
+
+        print("\nMatching " + str(datetime.datetime.now()) + " finished")
+        self._update_db(queries_to_update)
 
 
 

@@ -1,10 +1,11 @@
 # Python Standard Library Imports
-import pandas as pd
-import sqlite3
-import os
 import numpy as np
+import os
+import pandas as pd
 from pandas import read_json
+import sqlite3
 from sqlalchemy import create_engine, exc
+import uuid
 
 # Django Imports
 from django.contrib.auth.models import User
@@ -15,12 +16,12 @@ from ...models import User, Product, Review
 
 # Global Directory Variables
 __current_dir__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-__json_location__ = __current_dir__[:-20] + "/datasets/"
+__json_location__ = __current_dir__[:-20] + "/datasets/static_data/"
 __db_location__ = __current_dir__[:-28] + "/db.sqlite3"
 
 # Global Model Schema Variables
 user_columns = ["reviewerID", "reviewerName"]
-product_columns = ["asin", "category", "duplicateRatio", "incentivizedRatio", "ratingAnomalyRate", "reviewAnomalyRate"]
+product_columns = ["asin", "title", "category", "url", "duplicateRatio", "incentivizedRatio", "ratingAnomalyRate", "reviewAnomalyRate"]
 review_columns = ["reviewID", "reviewText", "overall", "unixReviewTime", "minHash", "asin", "reviewerID", "duplicate", "incentivized"]
 
 
@@ -53,7 +54,7 @@ class FileToDatabase():
         # parse through every file name in directory 5_core
         entries = os.scandir(__json_location__)
         for entry in entries:
-            self.entry_name = entry.name
+            self.entry_name = entry.name[:-7]
             #print("Processing file: " + str(entry.name))  
             if entry.name == '.DS_Store':
                 continue
@@ -66,6 +67,7 @@ class FileToDatabase():
 
 
     def df_to_database(self, table_name, df):
+        print(df)
         # push the data frame to the database
         try:
             df.to_sql(table_name, self.engine_connection, if_exists='replace', index=False, method='multi', chunksize=500)                          # use 'append' to keep duplicate reviews
@@ -118,7 +120,6 @@ class FileToDatabase():
         # only keep the columns we need according to the schema in user_columns;
         print("inserting data into user...")
         user_info = df.loc[:, user_columns]
-        #user_info.dropna(axis=0, how="any", inplace=True)
         user_info.fillna("", inplace=True)
         user_info.drop_duplicates(subset=["reviewerID"], inplace=True)    
         return user_info
@@ -129,7 +130,8 @@ class FileToDatabase():
     def _serialize_to_product(self, df):
         # fill in extra attributes not present in json files 
         print("inserting data into product...")
-        df["category"] = self.entry_name[:-7]
+        df["category"] = self.entry_name
+        df["url"] = self._add_url(df)
         df["duplicateRatio"] = 0.0
         df["incentivizedRatio"] = 0.0
         df["ratingAnomalyRate"] = 0.0
@@ -149,14 +151,14 @@ class FileToDatabase():
         df["minHash"] = ""
         df["duplicate"] = 0
         df["incentivized"] = 0
-        df['reviewID'] = self._add_id(df)                       # create unique id's for each review
+        df['reviewID'] = self._add_review_id(df)                       # create unique id's for each review
         
         df = df.loc[:, review_columns]
         return df
 
 
 
-    def _add_id(self, df):
+    def _add_review_id(self, df):
         # find current highest id in table
         existing = pd.read_sql(self.table_name, self.engine_connection)
         low_id = max_id = 0
@@ -168,3 +170,48 @@ class FileToDatabase():
             max_id = len(df) + low_id
 
         return np.arange(low_id, max_id)
+
+
+
+    def _add_user_id(self, df):
+        print(self.table_name)
+        existing = pd.read_sql(self.table_name, self.engine_connection)
+        print(existing)
+        unique_ids = []
+        for reviewer_num in range(0, len(df)):
+            # if the randomly generated id exists in the database, then generate new one
+            random_id = str(uuid.uuid4())
+            duplicate_id = True
+            while duplicate_id:
+                if existing.empty:
+                    if random_id in unique_ids:
+                        print("generating new id...")
+                        random_id = str(uuid.uuid4())
+                    else:
+                        duplicate_id = False
+                else:
+                    if random_id in existing['reviewerID'].values or random_id in unique_ids:
+                        print("generating new id...")
+                        random_id = str(uuid.uuid4())
+                    else:
+                        duplicate_id = False
+            unique_ids.append(random_id)
+      
+
+        return pd.Series(unique_ids) 
+
+
+
+    def _add_url(self, df):
+        urls = [("https://www.amazon.com/dp/" + str(asin)) for asin in df['asin']]
+        return pd.Series(urls)
+
+
+
+    def set_table_name(self, table_name):
+        self.table_name = table_name
+    
+
+
+    def set_entry_name(self, entry_name):
+        self.entry_name = entry_name
