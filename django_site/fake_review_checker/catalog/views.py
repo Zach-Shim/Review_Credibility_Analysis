@@ -25,6 +25,8 @@ from .management.commands.incentivized import Incentivized
 from .management.commands.review_anomaly import ReviewAnomaly
 from .management.commands.rating_anomaly import RatingAnomaly
 from .management.commands.similarity import Similarity
+from .management.commands.svm import SVM
+from .management.commands.logistic_regression import LogisticRegression
 
 
 
@@ -39,7 +41,7 @@ def index(request):
         if asin_form.is_valid():
             # redirect to a new URL (result view):
             print("redirecting...")
-            return HttpResponseRedirect(reverse('result', args=[asin_form.cleaned_data['asin_choice']]))
+            return HttpResponseRedirect(reverse('static_result', args=[asin_form.cleaned_data['asin_choice']]))
         
         # autocomplete feature
         if 'asin_id' in request.GET and request.GET['asin_id']:
@@ -49,12 +51,12 @@ def index(request):
             else:
                 products = Product.objects.filter(asin__istartswith=request.GET['asin_id'])
             
-            max_count = 8
+            max_auto_results = 8
             current_count = 0
             titles = []
             # show first eight products that begin with user's input
             for product in products:
-                if current_count < max_count:
+                if current_count < max_auto_results:
                     titles.append(product.asin)
                     current_count += 1
                 else:
@@ -66,38 +68,8 @@ def index(request):
 
     # Render the HTML template index.html with the data in the context variable
     return render(request, 'index.html', {"asin_form": asin_form})
+  
 
-
-
-def search_link(request):
-    # Create a dropdown and text input form instances and populate them with data from the request (binding)
-    link_form = LinkForm(request.GET)
-
-    # when a user types in the search box, autocomplete the first 10 product asin options from their input
-    if request.method == 'GET':
-        if link_form.is_valid():
-            # redirect to a new URL (result view):
-            print("redirecting...")
-            return HttpResponseRedirect(reverse('result', args=[link_form.cleaned_data['asin_choice']]))
-    else:
-        link_form = LinkForm()
-
-    # Render the HTML template index.html with the data in the context variable
-    return render(request, 'index.html', {"link_form": link_form})
-
-
-
-"""View function for home page of site."""
-def about(request):
-    context = {
-    }
-
-    # Render the HTML template index.html with the data in the context variable
-    return render(request, 'about.html', context=context)
-
-
-
-#def get_color()
 
 '''
     Parameters:
@@ -127,17 +99,93 @@ def plot(product_ASIN, duplicate, incentivized, review_anomaly, rating_anomaly):
 
 
 
-def result(request, product_ASIN):
-    # static
-    # Calculate Duplicate Ratio and number of duplicate reviews
+def static_result(request, product_ASIN):
+    # Retrieve number of reviews for given product and date range for given product
+    reviewsForProduct = Review.objects.filter(asin=product_ASIN).count()
+    category = Product.objects.filter(asin=product_ASIN).values('category')[0]['category']
+
+    # Retrieve duplicate review ratio
     duplicate = Similarity()
-    duplicateRatio = duplicate.detect(product_ASIN)
+    duplicateRatio = Product.objects.values('duplicateRatio')
     totalDuplicate = Review.objects.filter(asin=product_ASIN, duplicate=1).count()
 
-    # Dynamic
-    # Calculate Incentivized Ratio and number of incentivized reviews
+    # Retrieve duplicate review ratio
     incentivized = Incentivized()
-    incentivizedRatio = incentivized.detect(product_ASIN)
+    incentivizedRatio = Product.objects.values('incentivizedRatio')
+    totalIncentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
+
+    # Calculate Review and Rating Anomaly Rate and Interval/range of review posting dates 
+    review_anomaly = ReviewAnomaly()
+    reviewAnomalyRate = review_anomaly.detect(product_ASIN)
+    totalReviewAnomalies = review_anomaly.review_anomalies
+
+    rating_anomaly = RatingAnomaly()
+    ratingAnomalyRate = rating_anomaly.detect(product_ASIN)
+    totalRatingAnomalies = rating_anomaly.rating_anomalies
+
+    # Plot graphs for each detection algorithm
+    figure = plot(product_ASIN, duplicate, incentivized, review_anomaly, rating_anomaly)
+
+    context = {
+        'product_ASIN': product_ASIN,
+        'category': category,
+        
+        'duplicateRatio': duplicateRatio,
+        'totalDuplicate': totalDuplicate,
+
+        'incentivizedRatio': incentivizedRatio,
+        'totalIncentivized': totalIncentivized,
+
+        'reviewAnomalyRate': reviewAnomalyRate,
+        'totalReviewAnomalies': totalReviewAnomalies,
+
+        'ratingAnomalyRate': ratingAnomalyRate,
+        'totalRatingAnomalies': totalRatingAnomalies,
+        
+        'reviewsForProduct': reviewsForProduct,
+
+        'figure': figure,
+    }
+
+    # Render the HTML template index.html with the data in the context variable
+    return render(request, 'result.html', context=context)
+
+
+
+def search_link(request):
+    # Create a dropdown and text input form instances and populate them with data from the request (binding)
+    link_form = LinkForm(request.GET)
+
+    # when a user types in the search box, autocomplete the first 10 product asin options from their input
+    if request.method == 'GET':
+        if link_form.is_valid():
+            # remove cache from link
+            link = link_form.cleaned_data['link_choice']
+            link_keywords = link.split('/')
+            asin = link_keywords[link_keywords.index("dp") + 1]
+
+            # redirect to a new URL (result view):
+            print("redirecting...")
+            return HttpResponseRedirect(reverse('link_result', args=[asin]))
+
+    # Render the HTML template index.html with the data in the context variable
+    return render(request, 'search_link.html', {"link_form": link_form})
+
+
+
+def link_result(request, product_ASIN):
+    # Calculate Duplicate Ratio and number of duplicate reviews
+    duplicate = Similarity()
+    model = LogisticRegression()
+    model.binary()
+    model.detect(product_ASIN)
+    duplicateRatio = 1
+    totalDuplicate = 1
+
+    # Calculate Incentivized Ratio and number of incentivized reviews
+    incentivize_detector = Incentivized()
+    incentivize_detector.detect(product_ASIN)
+    incentivizedRatio = Product.objects.values('incentivizedRatio')
     totalIncentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
 
     # Calculate Review Anomaly Rate and Interval/range of review posting dates 
@@ -183,3 +231,11 @@ def result(request, product_ASIN):
 
 
 
+
+"""View function for home page of site."""
+def about(request):
+    context = {
+    }
+
+    # Render the HTML template index.html with the data in the context variable
+    return render(request, 'about.html', context=context)

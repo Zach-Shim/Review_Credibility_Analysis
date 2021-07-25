@@ -63,7 +63,6 @@ class Similarity(DetectionAlgorithms):
 
         # compare hashes
         self.threshold = 0.3
-        self.invert_index()
 
         # invoking the constructor of the parent class  
         graph_info = {"method": "count", "title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
@@ -90,9 +89,10 @@ class Similarity(DetectionAlgorithms):
 
     # compares a review's bigram hashes against other review's bigram hashses (takes the cross section of hashes in common)
     def detect_all(self):
-        review_num = 0
+        self.invert_index()
+        
         queries_to_update = []
-
+        review_num = 0
         for review in Review.objects.values('reviewID', 'minHash'):
             if review_num % 1000 == 0:
                 print("\nMatching " + str(datetime.datetime.now()) + " " + str(review_num))

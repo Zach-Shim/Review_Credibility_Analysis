@@ -36,16 +36,26 @@ from .minhash import MinHash
 class Command(BaseCommand):
     help = 'Use logical regression to determine spam score'
 
+    def add_arguments(self, parser):
+        parser.add_argument('asin', type=str, nargs='?', help='run similarity on a specific product asin')
+        parser.add_argument('-a', '--all', action='store_true', help='Run similarity on all products')
+
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):        
+        asin = kwargs['asin']
         log_regression = LogicalRegression()
-        log_regression.all()
+
+        if kwargs['all']:
+            # cross validate
+            log_regression.all()
+        elif kwargs['asin']:        
+            # run on specific product asin
+            cm = log_regression.binary()
+            log_regression.detect(asin)
+        else:
+            raise ValueError("Please enter the command -a or an asin")
 
         '''
-        # run on specific product asin
-        cm = regression.train()
-        #regression.detect(asin)
-
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(cm)
         ax.grid(False)
@@ -59,7 +69,7 @@ class Command(BaseCommand):
         plt.show()
         '''
 
-class LogicalRegression():
+class LogisticRegression():
     def __init__(self):
         self.classifier = None
         pass
@@ -67,22 +77,21 @@ class LogicalRegression():
 
     # single-variate logistic regression
     def detect(self, product_ASIN):
+        '''
         # pull unseen data
-        data = {'minhash': MinHash.min_hash_asin(product_ASIN)}
-        review = (pd.DataFrame(data)).values
+        hasher = MinHash()
+        hasher.min_hash(Review.objects.filter(asin=product_ASIN))
+        df = pd.DataFrame(list(Review.objects.filter(asin=product_ASIN).values('minHash', 'duplicate')))
+        reviews = df['minHash']
 
         # convert minHash into vector
         vectorizer = CountVectorizer(min_df=0, lowercase=False).fit(reviews)
-        x_test = vectorizer.transform(vectorizer).toarray()
+        x_test = vectorizer.transform(reviews).toarray()
 
         # predict score on new data
         predictions = self.classifier.predict(x_test)
-
-        # check accuracy of prediction on unseen data
-        score = self.classifier.score(x_test, y_test)
-        print("Accuracy: ", score)
-        breakpoint()
-        pass
+        return predictions
+        '''
 
 
 
@@ -93,10 +102,10 @@ class LogicalRegression():
         duplicates = df['duplicate'].values
         
         # split test and train data
-        sentences_train, sentences_test, y_train, y_test = train_test_split(reviews, duplicates, test_size=0.25, random_state=1000)    
+        sentences_train, sentences_test, y_train, y_test = train_test_split(reviews, duplicates, test_size=0.2)    
 
         # convert review texts into vectors
-        vectorizer = CountVectorizer().fit(sentences_train)
+        vectorizer = TfidfVectorizer().fit(sentences_train)
 
         # create sparse matrices
         x_train = vectorizer.fit_transform(sentences_train)

@@ -132,6 +132,7 @@ class FileToDatabase():
         print("inserting data into product...")
         df["category"] = self.entry_name
         df["url"] = self._add_url(df)
+        df["title"] = ""
         df["duplicateRatio"] = 0.0
         df["incentivizedRatio"] = 0.0
         df["ratingAnomalyRate"] = 0.0

@@ -9,6 +9,7 @@ from django.utils.translation import ugettext_lazy as _
 
 # Local Imports
 from .models import User, Product, Review
+from .management.commands.scrape import Scrape
 
 
 
@@ -34,23 +35,23 @@ class LinkForm(forms.Form):
 
     def clean_link_choice(self):
         # get the cleaned version of the field data, and return it regardless if it is changed
-        data = self.cleaned_data['link_choice']
-
+        link = self.cleaned_data['link_choice']
+        
         # if the choice is not a valid asin, display an error text to the screen with ValidationError
-        if 'amazon' not in data or data == None or data == '':
-            raise ValidationError(_("'" + str(data) + "' is not a valid link"))
+        if 'amazon' not in link or link == None or link == '':
+            raise ValidationError(_("Invalid link"))
+
+        try:
+            # remove cache from link
+            link_keywords = link.split('/')
+            asin = link_keywords[link_keywords.index("dp") + 1]
+            link = "http://www.amazon.com/dp/" + asin
+        except:
+            raise ValidationError(_("Invalid link"))
 
         # scrape data and check to check if page is valid
-        self.scrape()
-
-        return data
-
-    def scrape(self):
-        # get returns a response object; .text returns source html code
-        source = requests.get(self.cleaned_data['link_choice']).text
-        soup = BeautifulSoup(source, 'lxml')
-        print(soup.prettify())
-
+        scraper = Scrape()
+        if not scraper.scrape(asin):
+            raise ValidationError(_("Invalid link"))
         
-        breakpoint()
-
+        return link

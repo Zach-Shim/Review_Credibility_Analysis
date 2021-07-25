@@ -39,9 +39,11 @@ class Command(BaseCommand):
 
         if kwargs['all']:
             # run on entire database (takes a really long time if database is large because it has to cross check data)
-            minhash.min_hash()
+            minhash.min_hash(Review.objects.all())
         elif kwargs['asin']:        
-            minhash.min_hash_asin(asin)
+            minhash.min_hash_asin(Review.objects.filter(asin=product_ASIN))
+        else:
+            raise ValueError("Please enter the command -a or an asin")
 
 
 class MinHash():
@@ -109,48 +111,33 @@ class MinHash():
     '''
         create a minHash for all bishingles
     '''
-    def min_hash(self):
+    def min_hash(self, reviews):
         self.review_count = 0
         
         # open original json file data
         queries_to_update = []
-        for review in Review.objects.all():
-            signature = self._calculate_hash(review)
-            review.minHash = signature
+        for review in reviews:
+            review_text = self.naturalize(review.reviewText)
+            bigram_crcs = self.find_bigram_crcs(review_text) 
+
+            if self.review_count % 1000 == 0:
+                print("\n" + str(datetime.datetime.now()) + " " + str(self.review_count))
+
+            signature = []
+            for i in range(0, self.num_of_hashes):
+                # Track the lowest hash ID seen. Initialize 'minhash_code' to be greater than the maximum possible value output by the hash.
+                minhash_code = self.next_prime + 1
+                for shingle_id in bigram_crcs:                                                        # For each bigram in the review..
+                    hash_code = (self.coeff_a[i] * shingle_id + self.coeff_b[i]) % self.next_prime       # For each of the bigrams in the document, calculate its hash code using hash number 'i' in the following hash function
+                    if hash_code < minhash_code:                                                      # track the lowest hash ID seen.
+                        minhash_code = hash_code
+                signature.append(minhash_code)
+
+            # Join the hash code signautures into one string
+            str_sig = ','.join(str(num) for num in signature)
+            review.minHash = str_sig
             queries_to_update.append(review)
             self.review_count += 1
 
         Review.objects.bulk_update(queries_to_update, ['minHash'])
         print("\n" + str(datetime.datetime.now()) + " " + str(self.review_count))
-
-
-
-    def min_hash_asin(self, product_ASIN):
-        review = Review.object.filter(asin=product_ASIN)
-        signature = self._calculate_hash(review)
-        review.minHash = signature
-        review.save()
-        return signature
-    
-
-
-    def _calculate_hash(self, review):
-        review_text = self.naturalize(review.reviewText)
-        bigram_crcs = self.find_bigram_crcs(review_text) 
-
-        if self.review_count % 1000 == 0:
-            print("\n" + str(datetime.datetime.now()) + " " + str(self.review_count))
-
-        signature = []
-        for i in range(0, self.num_of_hashes):
-            # Track the lowest hash ID seen. Initialize 'minhash_code' to be greater than the maximum possible value output by the hash.
-            minhash_code = self.next_prime + 1
-            for shingle_id in bigram_crcs:                                                        # For each bigram in the review..
-                hash_code = (self.coeff_a[i] * shingle_id + self.coeff_b[i]) % self.next_prime       # For each of the bigrams in the document, calculate its hash code using hash number 'i' in the following hash function
-                if hash_code < minhash_code:                                                      # track the lowest hash ID seen.
-                    minhash_code = hash_code
-            signature.append(minhash_code)
-
-        # Join the hash code signautures into one string
-        str_sig = ','.join(str(num) for num in signature)
-        return str_sig

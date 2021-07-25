@@ -1,39 +1,6 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <!-- HEAD -->
-    <head>
-        <!-- Autocomplete feature for search bar-->
-        {% load static%}
-        <script src="{% static 'js/Amazon.js' %}"></script>
-        {% load static%}
-        <script src="{% static 'js/cli.js' %}"></script>
-        {% load static%}
-        <script src="{% static 'js/constant.js' %}"></script>
-        {% load static%}
-        <script src="{% static 'js/index.js' %}"></script>
-        <script>
-            var input = document.getElementById("link_choice");
-            // Execute a function when the user releases a key on the keyboard
-            input.addEventListener("keyup", function(event) {
-                // Number 13 is the "Enter" key on the keyboard
-                if (event.keyCode === 13) {
-                    // Cancel the default action, if needed
-                    event.preventDefault();
-                    // Trigger the button element with a click
-                    document.getElementById("search-link-button").click();
-                    try {
-                        // Get single product details by using ASIN id
-                        console.log('hello');
-                        const product_by_asin = await amazonScraper.asin({ asin: 'B01GW3H3U8' });
-                    } catch (error) {
-                        console.log(error);
-                    }
-                }
-            });
-        </script>
-    </head>
-
     <!-- NAVIGATION -->
     <nav class="nav-bar">
         <div class="logo">
@@ -51,21 +18,18 @@
     <section class="search">
         <h1> Analyze an Amazon URL </h1>
         
-        <p> Paste a link to an Amazon product to analyze it for fake reviews.
+        <p class="instruction"> Paste a link to an Amazon product to analyze it for fake reviews.
 
         <form method="get">
             <div class="container">
-                <div class="category_form">
-                    {{ link_form.category_choice }}
-                </div>
                 <div class="error_form">
-                    {{ link_form.asin_choice.errors }}
+                    {{ link_form.link_choice.errors.as_text }}
                 </div>
                 <div class="link_form">
-                    {{ link_form.asin_choice }}
+                    {{ link_form.link_choice }}
                 </div>
-                <div class="submit_form">
-                    <button id="search-link-button" type="submit">Search</button>
+                <div id="search-link-button" class="submit_form">
+                    <button type="submit">Search</button>
                 </div>
             </div>
         </form>
