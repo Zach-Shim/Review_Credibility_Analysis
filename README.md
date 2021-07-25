@@ -1,3 +1,4 @@
 Sprint Log:
-1. Implement CSS on basic HTML.
-2. Sanitize form input on home page.
+1. Finish optimizing ml algorithm
+2. Implement scraping with new library
+3. Deploy project
