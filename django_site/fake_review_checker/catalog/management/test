@@ -1,0 +1,571 @@
+
+'''
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.feature_selection import chi2
+
+# scoring
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import cross_val_score
+import matplotlib.pyplot as plt, mpld3
+import seaborn as sns
+
+# classifiers
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import LinearSVC
+'''
+
+
+# Django Imports
+from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
+
+# Relative Imports
+from ...models import User, Product, Review
+from .detection_algorithms import DetectionAlgorithms
+from .minhash import MinHash
+
+
+
+# Used by django admin on the command line: python manage.py logistic_regression
+class Command(BaseCommand):
+    help = 'Use logistic regression to determine spam score'
+
+    def add_arguments(self, parser):
+        parser.add_argument('asin', type=str, nargs='?', help='run similarity on a specific product asin')
+        parser.add_argument('-a', '--all', action='store_true', help='Run similarity on all products')
+
+    # args holds number of args, kwargs is dict of args
+    def handle(self, *args, **kwargs):        
+        asin = kwargs['asin']
+        lsi_model = LSI()
+        lsi_model.train()
+        lsi_model.detect()
+
+        '''
+        if kwargs['all']:
+            # cross validate
+            log_regression.all()
+        elif kwargs['asin']:        
+            # run on specific product asin
+            cm = log_regression.binary()
+            log_regression.detect(asin)
+        else:
+            raise ValueError("Please enter the command -a or an asin")
+        '''
+        '''
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.imshow(cm)
+        ax.grid(False)
+        ax.xaxis.set(ticks=(0, 1), ticklabels=('Predicted 0s', 'Predicted 1s'))
+        ax.yaxis.set(ticks=(0, 1), ticklabels=('Actual 0s', 'Actual 1s'))
+        ax.set_ylim(1.5, -0.5)
+        for i in range(2):
+            for j in range(2):
+                ax.text(j, i, cm[i, j], ha='center', va='center', color='darkred')
+
+        plt.show()
+        '''
+
+
+
+'''
+    Python Imports
+'''
+# feature selection
+from smart_open import open
+from gensim.corpora import Dictionary
+
+'''
+    Python Imports
+'''
+# feature selection
+from collections import defaultdict
+import numpy as np
+import pandas as pd
+import os
+
+# natural language processing
+import nltk
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.stem import WordNetLemmatizer
+
+# similarity detection model and vectors
+from gensim import corpora
+from gensim import models
+from gensim import similarities
+from gensim.test.utils import get_tmpfile
+
+import logging
+
+__keywords_path__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))[:-20] + "/datasets/dynamic_data/keywords.dict"
+__bow_corpus_path__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))[:-20] + "/datasets/dynamic_data/bow_corpus.mm"
+__lsi_model_path__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))[:-20] + "/datasets/dynamic_data/lsi_model.lsi"
+__lsi_corpus_path__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))[:-20] + "/datasets/dynamic_data/lsi_corpus.lsi"
+__sim_index_path__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))[:-20] + "/datasets/dynamic_data/similarity.index"
+
+
+
+'''
+    Iterator class
+'''
+class MyDictionary():
+    def __init__(self):
+        self.documents = Review.objects.values('reviewText')
+
+    def __iter__(self):
+        # proprocess document corpus through tokenization, naturalization, and lemmatization
+        for review in self.documents:
+            yield self.naturalize(review['reviewText'])
+
+    def naturalize(self, review_text):      
+        # get rid of punctutaion and isolate individual words
+        tokenizer = nltk.RegexpTokenizer(r"\w+")
+        review_words = tokenizer.tokenize(review_text)
+
+        # lemmatize the words to obtain core meaning (lemma -> "blend" vs. lexeme -> "blending") (lemma = word that represents a group of words)
+        lemmatizer = WordNetLemmatizer()
+        lemmatized_words = [lemmatizer.lemmatize(word.casefold()) for word in review_words]
+
+        return lemmatized_words
+
+
+
+'''
+    Iterator class
+'''
+class MyCorpus:
+    def __init__(self, dictionary):
+        self.dictionary = dictionary
+        self.corpus_iter = MyDictionary()
+        
+
+    def __iter__(self):
+        for review in self.corpus_iter:
+            yield self.dictionary.doc2bow(review)
+
+
+
+'''
+    Iterator class
+'''
+class LSI():
+    def detect(self, product_ASIN=None):
+        # if number of documents (reviews) is less than some threshold (lets say, 5 reviews), return a message stating we cannot determine fakeness due to lack of data (reviews) for the product
+        # this is because if the length of the 'documents' list is 1, the algorithm will not work (models need a list with length greater than 1)
+        query_documents = ["Use a binary tree data structure to solve this graph algorithm", "Human computer interaction"]
+        texts = [naturalize(text) for text in query_documents]
+        loaded_dictionary = corpora.Dictionary.load(__keywords_path__)
+        query_corpus = [loaded_dictionary.doc2bow(text) for text in texts]
+        
+        model = models.TfidfModel(query_corpus)
+        tfidf_corpus = model[query_corpus]
+
+        #lsi_corpus = corpora.MmCorpus(__lsi_corpus_path__)
+        loaded_lsi_model = models.LsiModel.load(__lsi_model_path__)
+        query_lsi = loaded_lsi_model[tfidf_corpus]
+
+        '''
+        documents = Review.objects.values('reviewText')
+        for doc, as_text in zip(query_lsi, query_documents):
+            print(doc, as_text, '\n')
+            # perform a similarity query against indexed data with new documents
+            loaded_index = similarities.Similarity.load(__sim_index_path__)
+            sims = loaded_index[doc]
+
+            x = 5
+            for document_number, score in sorted(enumerate(sims), key=lambda x: x[1], reverse=True):
+                if x > 0:
+                    print(document_number, score, documents[document_number]['reviewText'][10:])
+                    x -= 1
+                else:
+                    print()
+                    break
+        '''
+        
+        # update dictionary
+        loaded_dictionary.add_documents(texts)
+        loaded_dictionary.save(__keywords_path__)
+
+        # update lsi model (note: we are able to update the model with a new corpus, but are unable to update the dictionary vocabulary for the model, doing so would require retraining)
+        loaded_lsi_model.add_documents(corpus=query_lsi, chunksize=500)
+        loaded_lsi_model.save(__lsi_model_path__)
+
+
+
+
+
+
+
+    def train(self):
+        # make bag-of-words dictionary (id: word) and save to disk
+        processed_corpus = MyDictionary()
+        dictionary = corpora.Dictionary(document for document in processed_corpus)
+        dictionary.save(__keywords_path__)                                      
+
+        # create document vectors based on dictionary (based on bag-of-words represetnation; each document is a list of (wordID: # of word occurences))
+        vector_corpus = MyCorpus(dictionary)
+        bow_corpus = [vector for vector in vector_corpus]                   # iterate over corpus (load one review into memory at a time to save RAM)
+        corpora.MmCorpus.serialize(__bow_corpus_path__, bow_corpus)   
+
+        tfidf = models.TfidfModel(bow_corpus)
+        corpus_tfidf = tfidf[bow_corpus]
+        
+        lsi = models.LsiModel(corpus_tfidf, id2word=dictionary, num_topics=90)
+        lsi.save(__lsi_model_path__)
+
+        corpus_lsi = lsi[corpus_tfidf]
+        corpora.MmCorpus.serialize(__lsi_corpus_path__, corpus_lsi)
+        
+        # enter all documents (enter a corpus) which we want to compare against subsequent similarity queries
+        index = similarities.Similarity(__sim_index_path__, corpus=corpus_lsi, num_features=(len(dictionary.dfs)))  
+        index.save(__sim_index_path__)
+
+        '''
+
+                # if number of documents (reviews) is less than some threshold (lets say, 5 reviews), return a message stating we cannot determine fakeness due to lack of data (reviews) for the product
+        # this is because if the length of the 'documents' list is 1, the algorithm will not work (models need a list with length greater than 1)
+        query_documents = ["Use a binary tree data structure to solve this graph algorithm", "Human computer interaction"]
+        texts = [processed_corpus.naturalize(text) for text in query_documents]
+        loaded_dictionary = corpora.Dictionary.load(__keywords_path__)
+        query_corpus = [loaded_dictionary.doc2bow(text) for text in texts]
+        
+        model = models.TfidfModel(query_corpus)
+        tfidf_corpus = model[query_corpus]
+
+        #lsi_corpus = corpora.MmCorpus(__lsi_corpus_path__)
+        loaded_lsi_model = models.LsiModel.load(__lsi_model_path__)
+        query_lsi = loaded_lsi_model[tfidf_corpus]
+
+        for doc, as_text in zip(query_lsi, query_documents):
+            print(doc, as_text, '\n')
+            # perform a similarity query against indexed data with new documents
+            loaded_index = similarities.Similarity.load(__sim_index_path__)
+            sims = loaded_index[doc]
+
+            x = 5
+            for document_number, score in sorted(enumerate(sims), key=lambda x: x[1], reverse=True):
+                if x > 0:
+                    print(document_number, score, processed_corpus.documents[document_number]['reviewText'][10:])
+                    x -= 1
+                else:
+                    print()
+                    break
+
+        # update dictionary
+        loaded_dictionary.add_documents(texts)
+        loaded_dictionary.save(__keywords_path__)
+
+        # update lsi model (note: we are able to update the model with a new corpus, but are unable to update the dictionary vocabulary for the model, doing so would require retraining)
+        loaded_lsi_model.add_documents(corpus=query_lsi, chunksize=500)
+        loaded_lsi_model.save(__lsi_model_path__)
+
+        '''
+
+
+
+    def sanitize(self, documents):
+        # remove common words and tokenize
+        stoplist = set('for a of the and to in'.split())
+        texts = [
+            [word for word in document.lower().split() if word not in stoplist]
+            for document in documents
+        ]
+        
+        # remove words that appear only once
+        frequency = defaultdict(int)
+        for text in texts:
+            for token in text:
+                frequency[token] += 1
+        
+        texts = [
+            [token for token in text if frequency[token] > 1]
+            for text in texts
+        ]
+        
+        return texts
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def test_detect(self):
+        
+        loaded_index = similarities.Similarity.load(__sim_index_path__)
+
+        #index = Similarity(loaded_index, )
+
+        # get rid of punctutaion and isolate individual words
+        processed_documents = processed_corpus.naturalize("Used this product for many sparkplug swaps. A little goes a long way, this product has never let me down.")
+        bow_corpus = dictionary.doc2bow(query_document)
+        
+        tfidf = models.TfidfModel(bow_corpus)
+        corpus_tfidf = tfidf[bow_corpus]
+
+        '''
+        sims = index[query_lda]
+
+        print(sims[11970])
+        x = 10
+        for document_number, score in sorted(enumerate(sims), key=lambda x: x[1], reverse=True):
+            if x > 0:
+                print(document_number, score)
+                x -= 1
+            else:
+                break
+        '''
+
+        loaded_lsi_model.add_documents(corpus_tfidf)
+        loaded_lsi_model
+
+
+    def test(self):
+        # make bag-of-words dictionary (id: word) and save to disk
+        processed_corpus = MyDictionary()
+        dictionary = corpora.Dictionary(document for document in processed_corpus)
+        dictionary.save(__keywords_path__)                                      
+
+        # create document vectors based on dictionary (based on bag-of-words represetnation; each document is a list of (wordID: # of word occurences))
+        vector_corpus = MyCorpus(dictionary)
+        bow_corpus = [vector for vector in vector_corpus]                   # iterate over corpus (load one review into memory at a time to save RAM)
+        corpora.MmCorpus.serialize(__bow_corpus_path__, bow_corpus)   
+
+        
+        tfidf = models.TfidfModel(bow_corpus)
+        corpus_tfidf = tfidf[bow_corpus]
+        lsi = models.LsiModel(corpus_tfidf, id2word=dictionary, num_topics=200)
+        corpus_lsi = lsi[corpus_tfidf]
+        lsi.save(__lsi_model_path__)
+
+        index = similarities.SparseMatrixSimilarity(corpus=corpus_lsi, num_features=(len(dictionary.dfs)))  
+        index.save(__sim_index_path__)
+
+        # get rid of punctutaion and isolate individual words
+        query_document = processed_corpus.naturalize("Used this product for many sparkplug swaps. A little goes a long way, this product has never let me down.")
+        query_bow = dictionary.doc2bow(query_document)
+        query_lda = lsi[query_bow]
+        sims = index[query_lda]
+
+        x = 10
+        for document_number, score in sorted(enumerate(sims), key=lambda x: x[1], reverse=True):
+            if x > 0:
+                print(document_number, score)
+                x -= 1
+            else:
+                break
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def detect(self, product_ASIN=None):
+        corpus_memory_friendly = MyCorpus()                                 # iterate over corpus (load one review into memory at a time to save RAM)
+        
+        #loaded_corpus = corpora.MmCorpus(__bow_corpus_path__)
+        loaded_dictionary = corpora.Dictionary.load(__keywords_path__)
+        loaded_model = models.LsiModel.load(__lsi_model_path__)
+        loaded_index = similarities.SparseMatrixSimilarity.load(__sim_index_path__)
+
+        # get rid of punctutaion and isolate individual words
+        query_document = corpus_memory_friendly.naturalize("Used this product for many sparkplug swaps. A little goes a long way, this product has never let me down.")
+        query_bow = loaded_dictionary.doc2bow(query_document)
+        query_lda = loaded_model[query_bow]
+        sims = loaded_index[query_lda]
+
+        #processed_corpus = self.naturalize(list(Review.objects.filter(asin=product_ASIN).values('reviewText')))
+        #query_bow = [dictionary.doc2bow(text) for text in processed_corpus]
+
+        loaded_dictionary.add_documents([query_document])        
+        loaded_model.add_documents(query_lda)
+
+        x = 10
+        for document_number, score in sorted(enumerate(sims), key=lambda x: x[1], reverse=True):
+            if x > 0:
+                print(document_number, score)
+                x -= 1
+            else:
+                break
+
+
+
+    def train(self):
+        # load corpus data vectors and dictionary
+        corpus_memory_friendly = MyCorpus()                                 # iterate over corpus (load one review into memory at a time to save RAM)
+        bow_corpus = [vector for vector in corpus_memory_friendly]          
+        corpora.MmCorpus.serialize(__bow_corpus_path__, bow_corpus)         # save each bow vector to disk
+        corpus_memory_friendly.dictionary.save(__keywords_path__)           # save cropus dictionary to disk
+
+        # Training the model
+        model = models.LsiModel(corpus=bow_corpus, id2word=corpus_memory_friendly.dictionary,num_topics=300)
+        model.save(__lsi_model_path__)
+        index = similarities.SparseMatrixSimilarity(model[bow_corpus], num_features=(len(corpus_memory_friendly.dictionary.dfs)))
+        index.save(__sim_index_path__)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # single-variate logistic regression
+    def identify(self, product_ASIN):
+        # pull unseen data
+        hasher = MinHash()
+        hasher.min_hash(Review.objects.filter(asin=product_ASIN))
+        df = pd.DataFrame(list(Review.objects.filter(asin=product_ASIN).values('minHash', 'duplicate')))
+        reviews = df['minHash']
+
+        # convert minHash into vector
+        vectorizer = CountVectorizer(min_df=0, lowercase=False).fit(reviews)
+        x_test = vectorizer.transform(reviews).toarray()
+
+        # predict score on new data
+        predictions = self.classifier.predict(x_test)
+        return predictions
+
+
+
+    def binary(self):
+        # pull test/train data for model
+        df = pd.DataFrame(list(Review.objects.values('minHash', 'duplicate')))
+        reviews = df['minHash'].values
+        duplicates = df['duplicate'].values
+        
+        # split test and train data
+        sentences_train, sentences_test, y_train, y_test = train_test_split(reviews, duplicates, test_size=0.2)    
+
+        # convert review texts into vectors
+        vectorizer = TfidfVectorizer().fit(sentences_train)
+
+        # create sparse matrices
+        x_train = vectorizer.fit_transform(sentences_train)
+        x_test = vectorizer.transform(sentences_test)
+        
+        # train model
+        self.classifier = LogisticRegression(solver='liblinear', C=10.0, random_state=0).fit(x_train, y_train)
+
+        # check accuracy of model
+        score = self.classifier.score(x_test, y_test)
+        print("Accuracy: ", score)
+
+        conf_matrix = confusion_matrix(y_test, self.classifier.predict(x_test))
+        print(conf_matrix)
+
+        print(classification_report(y_test, self.classifier.predict(x_test)))
+
+        return conf_matrix
+
+
+
+    def multinomial(self):
+        df = pd.DataFrame(Review.objects.values('reviewID', 'reviewText', 'incentivized'))
+        reviews = df['reviewText'].values
+        duplicates = df['incentivized'].values
+
+        X_train, X_test, y_train, y_test = train_test_split(reviews, duplicates, random_state = 0)
+
+        vectorizer = CountVectorizer()
+        X_train_count = vectorizer.fit_transform(X_train)
+        X_test_count = vectorizer.transform(X_test)
+
+        transformer = TfidfTransformer()
+        X_train_tfidf = transformer.fit_transform(X_train_count)
+        X_test_tfidf = transformer.transform(X_test_count)
+
+        clf = MultinomialNB().fit(X_train_tfidf, y_train)
+
+        score = clf.score(X_test_tfidf, y_test)
+        print("Accuracy: ", score)
+
+        conf_matrix = confusion_matrix(y_test, clf.predict(X_test_tfidf))
+        print(conf_matrix)
+
+        #r_test = vectorizer.transform(["these are good enough to get most motorized vehicles up and running, for semi and farm equipment, get solid copper."])
+        #print(clf.predict(r_test))
+        
+
+
+    def all(self):
+        df = pd.DataFrame(Review.objects.values('reviewID', 'reviewText', 'incentivized'))
+        tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2), stop_words='english')
+        features = tfidf.fit_transform(df.reviewText).toarray()
+        labels = df.reviewID
+        print(features.shape)
+
+        models = [
+            RandomForestClassifier(n_estimators=200, max_depth=3, random_state=0),
+            LinearSVC(),
+            MultinomialNB(),
+            LogisticRegression(random_state=0),
+        ]
+
+        CV = 5
+        cv_df = pd.DataFrame(index=range(CV * len(models)))
+        entries = []
+        for model in models:
+            model_name = model.__class__.__name__
+            accuracies = cross_val_score(model, features, labels, scoring='accuracy', cv=CV)
+            for fold_idx, accuracy in enumerate(accuracies):
+                entries.append((model_name, fold_idx, accuracy))
+        cv_df = pd.DataFrame(entries, columns=['model_name', 'fold_idx', 'accuracy'])
+
+        # plot data
+        sns.boxplot(x='model_name', y='accuracy', data=cv_df)
+        sns.stripplot(x='model_name', y='accuracy', data=cv_df, size=8, jitter=True, edgecolor="gray", linewidth=2)
+        plt.show()

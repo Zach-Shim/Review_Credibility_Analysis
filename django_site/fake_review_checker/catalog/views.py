@@ -16,6 +16,7 @@ from django.http import HttpResponse
 from django.http import JsonResponse
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+from django.views import generic
 
 # Local Imports
 from .models import User, Product, Review
@@ -26,8 +27,42 @@ from .management.commands.review_anomaly import ReviewAnomaly
 from .management.commands.rating_anomaly import RatingAnomaly
 from .management.commands.similarity import Similarity
 from .management.commands.svm import SVM
-from .management.commands.logistic_regression import LogisticRegression
+from .management.commands.lsi import LSI
 
+
+'''
+class UserListView(generic.ListView):
+    model = User
+    
+
+
+class ProductListView(generic.ListView):
+    model = Product
+
+    def get_context_data(self, **kwargs):
+        context = super(ProductListView, self).get_context_data(**kwargs)
+        context['category'] = Product.objects.filter(asin=product_ASIN).values('category')[0]['category']
+        context['plot'] = plot(product_ASIN)
+
+
+
+class ReviewListView(generic.ListView):
+    model = Review
+    context_object_name = "review_data"
+
+    def get_context_data(self, **kwargs):
+        context = super(ReviewView, self).get_context_data(**kwargs)
+        context['totalReviews'] = Review.objects.all(asin=product_ASIN).count()
+        context['duplicateRatio'] = Product.objects.values('duplicateRatio')
+        context['totalDuplicates'] = Review.objects.filter(asin=product_ASIN, duplicate=1).count()
+        context['incentivizedRatio'] = Product.objects.values('incentivizedRatio')
+        context['totalIncentivized'] = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
+        context['reviewAnomalyRatio'] = review_anomaly.detect(product_ASIN)
+        context['totalReviewAnomalies'] = review_anomaly.review_anomalies
+        context['ratingAnomalyRatio'] = rating_anomaly.detect(product_ASIN)
+        context['totalRatingAnomalies'] = rating_anomaly.rating_anomalies
+        return context
+'''
 
 
 """View function for home page of site."""
@@ -75,17 +110,17 @@ def index(request):
     Parameters:
         (productASIN, objects you want to graph...)
 '''
-def plot(product_ASIN, duplicate, incentivized, review_anomaly, rating_anomaly):
+def plot(product_ASIN):
     # create a graph
     plt.switch_backend('AGG')
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(11, 7))
     fig.subplots_adjust(wspace=0.6)
     
     # plot all axes
-    duplicate.plot(ax1)
-    incentivized.plot(ax2)
-    review_anomaly.plot(ax3)
-    rating_anomaly.plot(ax4)
+    Similarity.plot(ax1)
+    Incentivized.plot(ax2)
+    ReviewAnomaly.plot(ax3)
+    RatingAnomaly.plot(ax4)
 
     # encode the figure as a png
     buf = BytesIO()
@@ -105,26 +140,18 @@ def static_result(request, product_ASIN):
     category = Product.objects.filter(asin=product_ASIN).values('category')[0]['category']
 
     # Retrieve duplicate review ratio
-    duplicate = Similarity()
-    duplicateRatio = Product.objects.values('duplicateRatio')
-    totalDuplicate = Review.objects.filter(asin=product_ASIN, duplicate=1).count()
-
-    # Retrieve duplicate review ratio
-    incentivized = Incentivized()
     incentivizedRatio = Product.objects.values('incentivizedRatio')
     totalIncentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
 
     # Calculate Review and Rating Anomaly Rate and Interval/range of review posting dates 
-    review_anomaly = ReviewAnomaly()
     reviewAnomalyRate = review_anomaly.detect(product_ASIN)
     totalReviewAnomalies = review_anomaly.review_anomalies
 
-    rating_anomaly = RatingAnomaly()
     ratingAnomalyRate = rating_anomaly.detect(product_ASIN)
     totalRatingAnomalies = rating_anomaly.rating_anomalies
 
     # Plot graphs for each detection algorithm
-    figure = plot(product_ASIN, duplicate, incentivized, review_anomaly, rating_anomaly)
+    figure = plot(product_ASIN)
 
     context = {
         'product_ASIN': product_ASIN,
@@ -157,7 +184,7 @@ def search_link(request):
     link_form = LinkForm(request.GET)
 
     # when a user types in the search box, autocomplete the first 10 product asin options from their input
-    if request.method == 'GET':
+    if request.method == 'POST':
         if link_form.is_valid():
             # remove cache from link
             link = link_form.cleaned_data['link_choice']
@@ -174,19 +201,18 @@ def search_link(request):
 
 
 def link_result(request, product_ASIN):
+
+    # test connection too see if page is valid
+    scraper = Scrape()
+    if scraper.scrape(asin) == False:
+        pass
+
     # Calculate Duplicate Ratio and number of duplicate reviews
-    duplicate = Similarity()
-    model = LogisticRegression()
-    model.binary()
-    model.detect(product_ASIN)
-    duplicateRatio = 1
-    totalDuplicate = 1
+    regression_model = LogisticRegression()
+    regression_model.detect(product_ASIN)
 
     # Calculate Incentivized Ratio and number of incentivized reviews
-    incentivize_detector = Incentivized()
-    incentivize_detector.detect(product_ASIN)
-    incentivizedRatio = Product.objects.values('incentivizedRatio')
-    totalIncentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
+    sentiment_model
 
     # Calculate Review Anomaly Rate and Interval/range of review posting dates 
     review_anomaly = ReviewAnomaly()
@@ -226,6 +252,7 @@ def link_result(request, product_ASIN):
         'figure': figure,
     }
 
+    contenxt = {}
     # Render the HTML template index.html with the data in the context variable
     return render(request, 'result.html', context=context)
 

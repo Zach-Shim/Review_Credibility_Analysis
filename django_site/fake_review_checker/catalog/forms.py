@@ -49,9 +49,9 @@ class LinkForm(forms.Form):
         except:
             raise ValidationError(_("Invalid link"))
 
-        # scrape data and check to check if page is valid
+        # test connection too see if page is valid
         scraper = Scrape()
-        if not scraper.scrape(asin):
-            raise ValidationError(_("Invalid link"))
+        if scraper.test_connection(asin) == False:
+            raise ValidationError(_(scraper.get_error()))
         
         return link

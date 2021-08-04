@@ -1,43 +1,21 @@
 # Python Imports 
-'''
-from bs4 import BeautifulSoup
-from collections import OrderedDict 
+import ast
 from datetime import datetime
-import json
-import lxml
-from lxml import html
-import os
-import pandas as pd
-from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.common.keys import Keys
-from selectorlib import Extractor
-import time
-from webdriver_manager.chrome import ChromeDriverManager
-
-from lxml import etree
-import requests
-import lxml.html
-from lxml.cssselect import CSSSelector
-'''
-# Importing packages
+import math
 import pandas as pd
 import re
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
-import time
-import math
-from tqdm.auto import tqdm
 from random import choice
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+import time
 
+# scraping imports
+from bs4 import BeautifulSoup
 from lxml import etree
-import requests
 import lxml.html
 from lxml.cssselect import CSSSelector
+import requests
 
 # to ignore SSL certificate errors
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -89,22 +67,36 @@ class Scrape():
             'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
         }
 
+        # request tuning
         self.max_pages = 40
         self.asin = ""
+        self.tree = None
+        self.error_msg = ""
         self.dataframes = dict()
 
-        # url
+        # retry proxy
         self.sleep_time = 5
-        self.proxies = self.proxy_generator()        
-        self.max_tries = 10
+        self.max_tries = 5
+
+        # request params
+        self.proxies = []
+        self.proxy = dict()
         self.headers['user-agent'] = ua.random
-        self.proxy = choice(self.proxies)
 
 
     def scrape(self, asin):
         print("Start\n" + str(datetime.now()))
 
+        # initialize variables
         self.asin = asin
+        valid = self.proxy_generator()
+        if valid:
+            self.proxy = choice(self.proxies)
+        else:
+            return False
+            
+
+        # scrape and push data
         if Product.objects.filter(asin=asin).exists():
             return True
         else:
@@ -131,7 +123,7 @@ class Scrape():
             ftd.df_to_database('user', user_fixed_df)
         except Exception as e:
             print(e)
-            print("Error pushing user info to database")
+            self.error_msg = "Error pushing user info to database"
             return False
 
         # push product
@@ -142,7 +134,7 @@ class Scrape():
             ftd.df_to_database('product', product_fixed_df)
         except Exception as e:
             print(e)
-            print("Error pushing product info to database")
+            self.error_msg = "Error pushing product info to database"
             return False
 
         # push review
@@ -152,7 +144,7 @@ class Scrape():
             ftd.df_to_database('review', review_fixed_df)
         except Exception as e:
             print(e)
-            print("Error pushing review to database")
+            self.error_msg = "Error pushing review to database"
             return False
 
         print("End\n" + str(datetime.now()))
@@ -164,33 +156,27 @@ class Scrape():
         url = "https://www.amazon.com/dp/" + self.asin
 
         # request page
-        tree = None
-        try:
-            tree = self.request_wrapper(url)
-        except Exception as e:
-            print(e)
-            print("Invalid URL")
+        if self.request_wrapper(url) is not True:
             return False
-
 
         # get product title
         try:
-            product_title = tree.xpath("//*[@id='productTitle']/text()")[0]
+            product_title = self.tree.xpath("//*[@id='productTitle']/text()")[0]
             product_title = (str(product_title).split(',')[0]).strip()
             print(product_title)
         except Exception as e:
             print(e)
-            print("Error scraping product title")
+            self.error_msg = "Error scraping product title"
             return False
 
         # get categories 
         try:
-            category = tree.xpath("//*[@id='wayfinding-breadcrumbs_feature_div']/ul/li[1]/span/a/text()")[0]
+            category = self.tree.xpath("//*[@id='wayfinding-breadcrumbs_feature_div']/ul/li[1]/span/a/text()")[0]
             category = str(category).strip()
             print(category)
         except Exception as e:
             print(e)
-            print("Error scraping review ratings")
+            self.error_msg = "Error scraping review ratings"
             return False
 
         # build product dataframe from scraped data
@@ -200,7 +186,7 @@ class Scrape():
 
 
         # move to first review page
-        element = CSSSelector("a.a-link-emphasis.a-text-bold")(tree)
+        element = CSSSelector("a.a-link-emphasis.a-text-bold")(self.tree)
         extension = element[0].attrib['href']
         url = "https://www.amazon.com" + str(extension)
         print(url)
@@ -216,19 +202,14 @@ class Scrape():
         reviewer_names = []
 
         while next_page and pages < self.max_pages:
-            # refresh page
-            tree = None
-            try:
-                tree = self.request_wrapper(url)
-            except Exception as e:
-                print(e)
-                print("Invalid URL")
+            # request page
+            if self.request_wrapper(url) is not True:
                 return False
 
 
             # get unix review times
             try:
-                for date in tree.xpath("//div[@class='a-section celwidget']//span[contains(@class,'review-date')]/text()"):
+                for date in self.tree.xpath("//div[@class='a-section celwidget']//span[contains(@class,'review-date')]/text()"):
                     date = str(date).split(' ')[-3:]
                     date[1] = date[1][0:len(date[1])-1]
                     date = '/'.join(date)
@@ -236,22 +217,22 @@ class Scrape():
                     unix_review_times.append(date)
             except Exception as e:
                 print(e)
-                print("Error scraping review times")
+                self.error_msg = "Error scraping review times"
                 return False
 
             # get review ratings
             try:
-                for rating in tree.xpath("//div[@class='a-section celwidget']//div[2][contains(@class,'a-row')]//i[contains(@class,'a-icon-star')]"):
+                for rating in self.tree.xpath("//div[@class='a-section celwidget']//div[2][contains(@class,'a-row')]//i[contains(@class,'a-icon-star')]"):
                     rating = str(rating)[0]
                     review_ratings.append(rating)
             except Exception as e:
                 print(e)
-                print("Error scraping review ratings")
+                self.error_msg = "Error scraping review ratings"
                 return False
             
             # get review texts
             try:
-                for review in tree.xpath("//span[contains(@class,'review-text')]"):
+                for review in self.tree.xpath("//span[contains(@class,'review-text')]"):
                     text = ""
                     for child in list(review.iter()):
                         for element in child:
@@ -264,21 +245,21 @@ class Scrape():
                     review_texts.append(text)
             except Exception as e:
                 print(e)
-                print("Error scraping review texts")
+                self.error_msg = "Error scraping review texts"
                 return False
 
             # get reviewer names
             try:
-                for reviewer in tree.xpath("//div[@class='a-section celwidget']//div[1]//div[contains(@class,'a-profile-content')]//span[@class='a-profile-name']/text()"):
+                for reviewer in self.tree.xpath("//div[@class='a-section celwidget']//div[1]//div[contains(@class,'a-profile-content')]//span[@class='a-profile-name']/text()"):
                     reviewer_names.append(reviewer)
             except Exception as e:
                 print(e)
-                print("Error scraping reviewer names")
+                self.error_msg = "Error scraping reviewer names"
                 return False
 
             # determine if you have hit the last page of reviews
             try:
-                extension = tree.xpath("//div[@class='a-form-actions a-spacing-top-extra-large']//span//div//ul//li[2]//a")
+                extension = self.tree.xpath("//div[@class='a-form-actions a-spacing-top-extra-large']//span//div//ul//li[2]//a")
                 if not extension:
                     next_page = False
                     continue
@@ -288,14 +269,10 @@ class Scrape():
                 pages += 1
             except Exception as e:
                 print(e)
-                print("Error finding link to next review page")
+                self.error_msg = "Error finding link to next review page"
                 return False
 
-        print("unix review times ", len(unix_review_times))
-        print("review ratings ", len(review_ratings))
-        print("review texts ", len(review_texts))
-        print("reviewer names ", len(reviewer_names))
-        print(reviewer_names[-1])
+
 
         '''
             Build dataframes
@@ -326,17 +303,24 @@ class Scrape():
     def request_wrapper(self, url):
         while True:
             while True:
-                # amazon blocks requests that does not come from browser, therefore need to mention user-agent
-                response = requests.get(url, headers=self.headers, proxies=self.proxy)
+                # request page
+                try:
+                    # amazon blocks requests that does not come from browser, therefore need to mention user-agent
+                    response = requests.get(url, headers=self.headers, proxies=self.proxy)
+                except Exception as e:
+                    print(e)
+                    self.error_msg = "Invalid URL"
+                    return False
 
                 # checking the response code
                 if (response.status_code != 200):
-                    raise Exception(response.raise_for_status())
+                    self.error_msg = "Invalid URL"
+                    return False
                 
                 # checking whether capcha is bypassed or not (status code is 200 in case it displays the capcha image)
                 if "api-services-support@amazon.com" in response.text:
                     if self.max_tries == 0:
-                        print("Unable to bypass CAPTCHA")
+                        self.error_msg = "Unable to bypass CAPTCHA. Please refresh page and try again."
                         return False
                     else:
                         print("Attempting to bypass CAPTCHA")
@@ -347,7 +331,8 @@ class Scrape():
                         continue
                         
                 self.max_try = 5
-                return lxml.html.fromstring(response.content)
+                self.tree = lxml.html.fromstring(response.content)
+                return True
 
 
 
@@ -357,23 +342,48 @@ class Scrape():
         try:
             response = requests.get("https://proxylist.geonode.com/api/proxy-list?limit=50&page=1&sort_by=lastChecked&sort_type=desc&speed=fast&protocols=https&anonymityLevel=elite")
             soup = BeautifulSoup(response.text, 'html.parser')
-            proxies_table = str(soup).split(',')
-            #matches = re.findall('ip', proxies_tables)
-            ips = [x for x in proxies_table if re.search('ip', x)]
-            ports = [x for x in proxies_table if re.search('port', x)]
+            proxy_table = str(soup).split('{')
+
+            '''
+            print(proxy_table)
+            breakpoint()
+            for proxy in proxy_table:
+                if "ip" in proxy:
+                    proxy += '{' + proxy + '}'
+                print(proxy)
+                ast.literal_eval(str(proxy))
+                breakpoint()
+            '''
+
+            ips = [x for x in proxy_table if re.search('ip', x)]
+            ports = [x for x in proxy_table if re.search('port', x)]
             for ip, port in zip(ips, ports):
                 proxies.append({
                     'ip': ip[6:-1],
                     'port': port[8:-1]
                 })
 
-            proxies_list = [{'http':'http://'+proxy['ip']+':'+proxy['port']} for proxy in proxies]
-            return proxies_list
+            self.proxies = [{'http':'http://'+proxy['ip']+':'+proxy['port']} for proxy in proxies]
+            return True
         except Exception as e:
             print(e)
-            session = requests.Session()
-            retry = Retry(connect=3, backoff_factor=0.5)
-            adapter = HTTPAdapter(max_retries=retry)
-            session.mount('http://', adapter)
-            session.mount('https://', adapter)
-            raise ValueError("Unable to process proxies")
+            self.error_msg = "Unable to process proxies"
+            return False
+
+
+
+    def test_connection(self, asin):
+        url = "https://www.amazon.com/dp/" + asin
+
+        # request page
+        if self.request_wrapper(url) == False:
+            self.error_msg = "Invalid URL"
+            return False
+        else:
+            return True
+        
+
+
+
+    def get_error(self):
+        return self.error_msg

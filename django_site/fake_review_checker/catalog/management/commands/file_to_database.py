@@ -70,7 +70,7 @@ class FileToDatabase():
         print(df)
         # push the data frame to the database
         try:
-            df.to_sql(table_name, self.engine_connection, if_exists='replace', index=False, method='multi', chunksize=500)                          # use 'append' to keep duplicate reviews
+            df.to_sql(table_name, self.engine_connection, if_exists='append', index=False, method='multi', chunksize=500)                          # use 'append' to keep duplicate reviews
         except exc.IntegrityError as e:
             self.replace(table_name, df)
 
