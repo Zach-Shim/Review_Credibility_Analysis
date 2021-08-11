@@ -1,4 +1,4 @@
 Sprint Log:
-1. Finish optimizing ml algorithm
-2. Implement scraping with new library
-3. Deploy project
+1. Implement a sentiment ml algorithm.
+2. Put in a loading bar or screen when data is being processed in form vieews.
+3. Deploy project (Possibly on Heroku).
