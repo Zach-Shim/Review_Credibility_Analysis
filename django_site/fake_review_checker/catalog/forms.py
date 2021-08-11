@@ -9,7 +9,7 @@ from django.utils.translation import ugettext_lazy as _
 
 # Local Imports
 from .models import User, Product, Review
-#from .management.commands.scrape import Scrape
+from .management.commands.scrape import Scrape
 from .management.commands.scrape_amazon import ScrapeAmazon
 
 
@@ -39,20 +39,29 @@ class LinkForm(forms.Form):
         link = self.cleaned_data['link_choice']
         
         # if the choice is not a valid asin, display an error text to the screen with ValidationError
-        if 'amazon' not in link or 'dp' not in link or link == None or link == '':
-            raise ValidationError(_("Invalid link"))
+        if "http://" not in link and "https://" not in link:
+            raise ValidationError(_("Please enter a link starting with http:// or https://)"))
+
+        if "amazon.com" not in link:  
+            raise ValidationError(_("Please enter an Amazon link"))
+
+        if "www" not in link or "dp" not in link or link == None or link == '':
+            raise ValidationError(_("Please enter a valid Amazon 'product' link"))
+
+        if "https://www.amazon.com/" not in link and "http://www.amazon.com/" not in link:
+            raise ValidationError(_("Invalid Amazon url"))
 
         try:
             # remove cache from link
             link_keywords = link.split('/')
             asin = link_keywords[link_keywords.index("dp") + 1]
             link = "http://www.amazon.com/dp/" + asin
+
+            # scrape data to see if page is valid
+            scraper = Scrape()
+            if scraper.scrape(asin) == False:
+                raise ValidationError(_(scraper.get_error()))
         except:
             raise ValidationError(_("Invalid link"))
-
-        # test connection too see if page is valid
-        scraper = ScrapeAmazon()
-        if scraper.scrape(asin) == False:
-            raise ValidationError(_(scraper.get_error()))
         
         return link

@@ -44,8 +44,6 @@ class DetectionAlgorithms:
         scores = self.fake_review_info["review_scores"]
 
         bins = self.get_bins()
-        if not bins.any():
-            return None
 
         # Place these metrics into even bins of values
         value, bin_edges, binnumber = stats.binned_statistic(np.array(unix_review_times,dtype='float64'), np.array(scores,dtype='float64'), statistic=self.graph_info['method'], bins=bins)
@@ -156,23 +154,20 @@ class DetectionAlgorithms:
 
 
     def get_bins(self):
-        try:
-            reviews = Review.objects.filter(asin=self.product_ASIN)
+        reviews = Review.objects.filter(asin=self.product_ASIN)
 
-            # get posting date range (earliest post - most recent post)
-            most_recent_date = reviews.aggregate(Min('unixReviewTime'))
-            farthest_date = reviews.aggregate(Max('unixReviewTime'))
-            review_range = datetime.datetime.fromtimestamp(farthest_date['unixReviewTime__max']) - datetime.datetime.fromtimestamp(most_recent_date['unixReviewTime__min'])
+        # get posting date range (earliest post - most recent post)
+        most_recent_date = reviews.aggregate(Min('unixReviewTime'))
+        farthest_date = reviews.aggregate(Max('unixReviewTime'))
+        review_range = datetime.datetime.fromtimestamp(farthest_date['unixReviewTime__max']) - datetime.datetime.fromtimestamp(most_recent_date['unixReviewTime__min'])
 
-            # calculate review range
-            self.review_day_range = review_range.days
-            bucket_count = math.ceil(review_range.days / 30)
-            print("Product has reviews ranging " + str(self.review_day_range) + " days. Bucket count " + str(bucket_count))
-            
-            # Returns num of evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
-            return np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
-        except:
-            return False
+        # calculate review range
+        self.review_day_range = review_range.days
+        bucket_count = math.ceil(review_range.days / 30)
+        print("Product has reviews ranging " + str(self.review_day_range) + " days. Bucket count " + str(bucket_count))
+        
+        # Returns num of evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
+        return np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
        
     
 

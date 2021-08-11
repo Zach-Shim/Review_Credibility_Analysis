@@ -27,7 +27,7 @@ from .management.commands.incentivized import Incentivized
 from .management.commands.similarity import Similarity
 from .management.commands.anomaly import ReviewAnomaly, RatingAnomaly
 from .management.commands.lsi import LSI
-
+from .management.commands.scrape import Scrape
 
 '''
 class UserListView(generic.ListView):
@@ -192,7 +192,16 @@ def search_link(request):
 
 
 
+def loading_page(request, product_ASIN):
+    return render(request, 'loading.html', {"product_ASIN": product_ASIN})
+        
+
+
 def link_result(request, product_ASIN):
+    scraper = Scrape()
+    if scraper.scrape(product_ASIN) == False:
+        raise ValidationError(_(scraper.get_error()))
+  
     # Calculate Duplicate Ratio and number of duplicate reviews
     lsi_model = LSI()
     duplicates = lsi_model.detect(product_ASIN)

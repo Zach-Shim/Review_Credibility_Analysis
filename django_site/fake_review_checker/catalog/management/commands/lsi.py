@@ -148,15 +148,16 @@ class LSI(DetectionAlgorithms):
         loaded_lsi_model = models.LsiModel.load(__lsi_model_path__)
         query_lsi = loaded_lsi_model[tfidf_corpus]
 
+        # perform a similarity query against indexed data with new documents
+        loaded_index = similarities.Similarity.load(__sim_index_path__)
+
         print("Finding similar reviews with a threshold 80 percent similarity\n")
         duplicate_indexes = set()
         current_length = 0
         duplicates_in_category = 0
-        for doc in query_lsi:
-            # perform a similarity query against indexed data with new documents
-            loaded_index = similarities.Similarity.load(__sim_index_path__)
-            sims = loaded_index[doc]
 
+        for doc in query_lsi:
+            sims = loaded_index[doc]
             for document_number, score in sorted(enumerate(sims), key=lambda x: x[1], reverse=True):
                 if score > 0.9:
                     current_length += 1
@@ -189,7 +190,7 @@ class LSI(DetectionAlgorithms):
         loaded_lsi_model.save(__lsi_model_path__)
         
         self.product_ASIN = product_ASIN
-        self.calculate(duplicates_in_category, Review.objects.filter(asin=product_ASIN).count())
+        self.calculate(Review.objects.filter(asin=product_ASIN, duplicate=1).count(), Review.objects.filter(asin=product_ASIN).count())
         return len(queries_to_update)
         
 
@@ -203,34 +204,37 @@ class LSI(DetectionAlgorithms):
 
 
     def train(self):
-        print("Start " + str(datetime.now()))
+        print("Start " + str(datetime.datetime.now()))
         # make bag-of-words dictionary (id: word) and save to disk
         processed_corpus = MyDictionary()
         dictionary = corpora.Dictionary(document for document in processed_corpus)
         dictionary.save(__keywords_path__)                                      
 
         # create document vectors based on dictionary (based on bag-of-words represetnation; each document is a list of (wordID: # of word occurences))
+        print("Creating dictionary... " + str(datetime.datetime.now()))
         vector_corpus = MyCorpus(dictionary)
         bow_corpus = [vector for vector in vector_corpus]                       # iterate over corpus (load one review into memory at a time to save RAM)
-        corpora.MmCorpus.serialize(__bow_corpus_path__, bow_corpus)   
+        #corpora.MmCorpus.serialize(__bow_corpus_path__, bow_corpus)   
 
         # transform vector spaces and train tfidf model using bow vector data 
-        print("Processing bow vectors -> tfidf vectors... " + str(datetime.now()))
+        print("Processing bow vectors -> tfidf vectors... " + str(datetime.datetime.now()))
         tfidf = models.TfidfModel(bow_corpus)
         corpus_tfidf = tfidf[bow_corpus]
         
         # chain transformations - train lsi model using tfidf vector data (this allows online training)
-        print("Processing tfidf vectors -> lsi vectors... " + str(datetime.now()))
+        print("Processing tfidf vectors -> lsi vectors... " + str(datetime.datetime.now()))
         lsi = models.LsiModel(corpus_tfidf, id2word=dictionary, num_topics=90)
+        corpus_lsi = lsi[corpus_tfidf]
         lsi.save(__lsi_model_path__)
 
-        corpus_lsi = lsi[corpus_tfidf]
-        corpora.MmCorpus.serialize(__lsi_corpus_path__, corpus_lsi)
+        #corpus_lsi = lsi[corpus_tfidf]
+        #corpora.MmCorpus.serialize(__lsi_corpus_path__, corpus_lsi)
         
         # enter all documents (enter a corpus) which we want to compare against subsequent similarity queries
+        print("Training similiarity model... " + str(datetime.datetime.now()))
         index = similarities.Similarity(__sim_index_path__, corpus=corpus_lsi, num_features=(len(dictionary.dfs)))  
         index.save(__sim_index_path__)
-        print("End " + str(datetime.now()))
+        print("End " + str(datetime.datetime.now()))
 
 
 

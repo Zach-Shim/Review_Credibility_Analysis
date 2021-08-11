@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 
 {% block content %}
-    
+    <head>
+        <script>
+            $('form').submit(function() {
+                $(this).find("button[type='submit']").prop('disabled',true);
+            });
+        </script>
+    </head>
+
     <!-- NAVIGATION -->
     <nav class="nav-bar">
         <div class="logo">
