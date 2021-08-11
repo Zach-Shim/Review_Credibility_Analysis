@@ -26,7 +26,9 @@ class DetectionAlgorithms:
         self.review_day_range = 0
     
         # plotting info
-        self.series = pd.DataFrame()
+        self.df = pd.DataFrame()
+
+        self.error_msg = ""
 
 
 
@@ -40,10 +42,13 @@ class DetectionAlgorithms:
         # Get unixReviewTimes and scores of all fake reviews
         unix_review_times = self.fake_review_info["review_times"]
         scores = self.fake_review_info["review_scores"]
+
         bins = self.get_bins()
+        if not bins.any():
+            return None
 
         # Place these metrics into even bins of values
-        value, bin_edges, binnumber = stats.binned_statistic(unix_review_times, scores, statistic=self.graph_info['method'], bins=bins)
+        value, bin_edges, binnumber = stats.binned_statistic(np.array(unix_review_times,dtype='float64'), np.array(scores,dtype='float64'), statistic=self.graph_info['method'], bins=bins)
         value = value[np.isfinite(value)]
 
         # Get the timed intervals of each bin; convert timestamp string to datetime, then to unix timestamp integer
@@ -62,11 +67,11 @@ class DetectionAlgorithms:
         # Get unixReviewTimes and scores of all fake reviews
         self.set_info()
         if self.empty_graph(subplot):
-            return
+            return False
 
-        self.series = self.generate_frame()
-        self.plot_frame(subplot, self.series)
-        return
+        self.df = self.generate_frame()
+        self.plot_frame(subplot, self.df)
+        return True
 
 
 
@@ -76,17 +81,26 @@ class DetectionAlgorithms:
         y_axis = self.graph_info['y_axis'] 
         x_axis = self.graph_info['x_axis'] 
 
-        #print("current frame:\n", frame)
+        try:
+            print("current frame:\n", frame)
+            dp = frame.plot(x='timestamp', y='value', title=title, kind='line', ax=subplot)
+            dp.set_ylabel(y_axis)
+            dp.set_xlabel(x_axis)
+        except:
+            self.error_msg = "Unable to plot frame"
+            return False
 
-        dp = frame.plot(x='timestamp', y='value', title=title, kind='line', ax=subplot)
-        dp.set_ylabel(y_axis)
-        dp.set_xlabel(x_axis)
+        return True
 
 
 
     def empty_graph(self, subplot):
-        unix_review_times = self.fake_review_info["review_times"]
-        scores = self.fake_review_info["review_scores"]
+        try:
+            unix_review_times = self.fake_review_info["review_times"]
+            scores = self.fake_review_info["review_scores"]
+        except:
+            self.error_msg = "No data to analyze"
+            return True
 
         # error checking for empty graph
         if (len(unix_review_times) == 0 or len(scores) == 0):
@@ -105,10 +119,11 @@ class DetectionAlgorithms:
             print(str(review_count[i]))
         print("bintime count before: " + str(len((bin_timestamps))))
         '''
-
+        
         # if number of initial bins exceeds review count and average rating bins, minimize bins length until it is equal in size of review count and average rating
         rcl = len(review_count)
         btsl = len(bin_timestamps)
+
         new_review_count = []
         if "Anomalies" in self.graph_info['title']:
             i = 0
@@ -123,8 +138,6 @@ class DetectionAlgorithms:
                 bin_timestamps.pop()
                 rcl += 1
         
-
-
         ''' 
         print("review count after: " + str(len(review_count)))
         print("review_count")
@@ -143,30 +156,39 @@ class DetectionAlgorithms:
 
 
     def get_bins(self):
-        reviews = Review.objects.filter(asin=self.product_ASIN)
+        try:
+            reviews = Review.objects.filter(asin=self.product_ASIN)
 
-        # get posting date range (earliest post - most recent post)
-        most_recent_date = reviews.aggregate(Min('unixReviewTime'))
-        farthest_date = reviews.aggregate(Max('unixReviewTime'))
-        review_range = datetime.datetime.fromtimestamp(farthest_date['unixReviewTime__max']) - datetime.datetime.fromtimestamp(most_recent_date['unixReviewTime__min'])
+            # get posting date range (earliest post - most recent post)
+            most_recent_date = reviews.aggregate(Min('unixReviewTime'))
+            farthest_date = reviews.aggregate(Max('unixReviewTime'))
+            review_range = datetime.datetime.fromtimestamp(farthest_date['unixReviewTime__max']) - datetime.datetime.fromtimestamp(most_recent_date['unixReviewTime__min'])
 
-        # calculate review range
-        self.review_day_range = review_range.days
-        bucket_count = math.ceil(review_range.days / 30)
-        print("Product has reviews ranging " + str(self.review_day_range) + " days. Bucket count " + str(bucket_count))
-        
-        # Returns num of evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
-        return np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
+            # calculate review range
+            self.review_day_range = review_range.days
+            bucket_count = math.ceil(review_range.days / 30)
+            print("Product has reviews ranging " + str(self.review_day_range) + " days. Bucket count " + str(bucket_count))
+            
+            # Returns num of evenly spaced samples, calculated over the interval [start, stop]. num = Number of samples to generate
+            return np.linspace(most_recent_date['unixReviewTime__min'], farthest_date['unixReviewTime__max'], bucket_count)
+        except:
+            return False
        
     
 
     def set_info(self, reviews):
-        unix_review_times = scores = []
-        for review in reviews.values('unixReviewTime', 'overall').order_by('unixReviewTime'):
-            unix_review_times.append(review['unixReviewTime'])
-            scores.append(review['overall'])
-        self.fake_review_info = {"review_times": unix_review_times, "review_scores": scores}
-
+        try:
+            review_ids = []
+            unix_review_times = []
+            scores = []
+            for review in reviews.values('reviewID', 'unixReviewTime', 'overall').order_by('unixReviewTime'):
+                review_ids.append(review['reviewID'])
+                unix_review_times.append(review['unixReviewTime'])
+                scores.append(review['overall'])
+            self.fake_review_info = {"review_ids": review_ids, "review_times": unix_review_times, "review_scores": scores}
+        except:
+            return False
+            
 
 
     def get_day_range(self):

@@ -9,7 +9,8 @@ from django.utils.translation import ugettext_lazy as _
 
 # Local Imports
 from .models import User, Product, Review
-from .management.commands.scrape import Scrape
+#from .management.commands.scrape import Scrape
+from .management.commands.scrape_amazon import ScrapeAmazon
 
 
 
@@ -31,14 +32,14 @@ class AsinForm(forms.Form):
 
 
 class LinkForm(forms.Form):
-    link_choice = forms.CharField(label="", required=True, widget=forms.TextInput(attrs={'placeholder': 'Enter an Amazon link'}))
+    link_choice = forms.CharField(label="", required=True, max_length=200, widget=forms.TextInput(attrs={'placeholder': 'Enter an Amazon link'}))
 
     def clean_link_choice(self):
         # get the cleaned version of the field data, and return it regardless if it is changed
         link = self.cleaned_data['link_choice']
         
         # if the choice is not a valid asin, display an error text to the screen with ValidationError
-        if 'amazon' not in link or link == None or link == '':
+        if 'amazon' not in link or 'dp' not in link or link == None or link == '':
             raise ValidationError(_("Invalid link"))
 
         try:
@@ -50,8 +51,8 @@ class LinkForm(forms.Form):
             raise ValidationError(_("Invalid link"))
 
         # test connection too see if page is valid
-        scraper = Scrape()
-        if scraper.test_connection(asin) == False:
+        scraper = ScrapeAmazon()
+        if scraper.scrape(asin) == False:
             raise ValidationError(_(scraper.get_error()))
         
         return link

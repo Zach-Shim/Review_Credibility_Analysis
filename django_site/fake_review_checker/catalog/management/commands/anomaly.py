@@ -5,6 +5,10 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 
+import matplotlib.pyplot as plt, mpld3
+import matplotlib
+matplotlib.use("TkAgg")
+
 # Django Imports
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
@@ -70,28 +74,41 @@ class Anomaly(DetectionAlgorithms):
 
 
 
-    # returns reviews in bins of 30-day time series
+    # returns reviews in bins of 30-day time df
     def detect_anomalies(self, product_ASIN):
         self.product_ASIN = product_ASIN
-        self.set_info()
+        self.set_info(Review.objects.filter(asin=self.product_ASIN))
 
         # Calculate an even number of bins based on range of unix_review_times x months
-        self.series = self.generate_frame()
-        #print(self.series)
+        self.df = self.generate_frame()
+        if self.df.empty:
+            return None
+        #print(self.df)
 
         # convert timestamp to unix timestamp integer
-        self.series['timestamp'] = self.series['timestamp'].astype(np.int64) 
+        self.df['timestamp'] = self.df['timestamp'].view(np.int64) 
+        self.fake_review_info['review_times'] = self.df['timestamp'].to_list()
 
         # calculate anomalies in rating value distribution
         detected_anomalies = defaultdict(dict)
         try:
-            detected_anomalies = detect_ts(self.series, max_anoms=0.02, alpha=0.001, direction='both')
+            detected_anomalies = detect_ts(self.df, max_anoms=0.02, alpha=0.001, direction='both')
         except Exception as e:
             detected_anomalies['anoms']['anoms'] = []
+
+        '''
+        anomaly_ids = []
+        for anomaly in detected_anomalies['anoms']['anoms']:
+            for review_id, review_time, review_rating in zip(self.fake_review_info['review_ids'], self.fake_review_info['review_times'], self.fake_review_info['review_scores']):
+                print(anomaly[0], int(anomaly[1]), review_id, review_time, review_rating)
+                if review_time == anomaly[0] and review_rating == int(anomaly[1]):
+                    anomaly_ids.append(review_id)
+                    print("success")
+        '''
         
         # format the unix timestamp integer back to datetime
-        self.series['timestamp'] = pd.to_datetime(self.series['timestamp'])
-        
+        self.df['timestamp'] = pd.to_datetime(self.df['timestamp'])
+
         # return number of anomalies
         return len(detected_anomalies['anoms']['anoms'])
 
@@ -100,39 +117,12 @@ class Anomaly(DetectionAlgorithms):
     # overloaded plot method, because we had to build the dataframes in detect in order to analyze the data (so no need to do it again)
     def plot(self, subplot):
         if self.empty_graph(subplot):
-            return
-        self.plot_frame(subplot, self.series)
+            return False
 
-
-
-    def set_info(self):
-        # query sets of review data for histogram bins
-        reviews = Review.objects.filter(asin=self.product_ASIN)
-        review_times_int = [review['unixReviewTime'] for review in reviews.values('unixReviewTime').order_by('unixReviewTime')]
-        review_scores = [review['overall'] for review in reviews.values('overall').order_by('unixReviewTime')]
-        self.fake_review_info = {"review_times": review_times_int, "review_scores": review_scores}
-
-
-
-    def get_rating_color(self):
-        num_of_anoms = len(self.rating_value_anomalies['anoms']['anoms'])
-        return check_length(num_of_anoms)
-
-
-
-    def get_review_color(self):
-        num_of_anoms = len(self.review_count_anomalies['anoms']['anoms'])
-        return check_length(num_of_anoms)
-    
-
-
-    def check_length(self, num_of_anoms):
-        if num_of_anoms == 0:
-            return "green"
-        elif num_of_anoms == 1:
-            return "orange"
-        elif num_of_anoms > 1:
-            return "red"
+        if self.plot_frame(subplot, self.df):
+            return True
+        else:
+            return False
 
 
 
@@ -145,14 +135,16 @@ class Anomaly(DetectionAlgorithms):
 class RatingAnomaly(Anomaly):
 
     def __init__(self):
-        rating_anomalies = 0
-
         # invoking the constructor of the parent class  
         super(RatingAnomaly, self).__init__({"method": "mean", "title": "Average Rating Anomalies", "y_axis": "Rating Value", "x_axis": "Time"})  
+        self.rating_anomalies = 0
 
     def detect(self, product_ASIN):
         self.rating_anomalies = self.detect_anomalies(product_ASIN)
-        return self.calculate(self.rating_anomalies, Review.objects.filter(asin=self.product_ASIN).count())
+        if self.rating_anomalies:
+            return self.calculate(self.rating_anomalies, Review.objects.filter(asin=self.product_ASIN).count())
+        else:
+            return False
 
     def detect_all(self):
         for product in Product.objects.values('asin'):
@@ -160,9 +152,10 @@ class RatingAnomaly(Anomaly):
 
     # accepts total number of anomalies and total number of anomalies (anomaly score = number of anomalies / total number of reviews)
     def calculate(self, fake_reviews, total):
-        anomaly_rate = round(fake_reviews / total * 100, 2)
+        anomaly_rate = round(fake_reviews / total * 100, 3)
         Product.objects.filter(asin=self.product_ASIN).update(ratingAnomalyRate=anomaly_rate)
         return anomaly_rate
+
 
 
 
@@ -175,14 +168,16 @@ class RatingAnomaly(Anomaly):
 class ReviewAnomaly(Anomaly):
 
     def __init__(self):
-        review_anomalies = 0
-
         # invoking the constructor of the parent class  
         super(ReviewAnomaly, self).__init__({"method": "count", "title": "Review Count Anomalies", "y_axis": "Number of Reviews", "x_axis": "Time"})  
+        self.review_anomalies = 0
 
     def detect(self, product_ASIN):
         self.review_anomalies = self.detect_anomalies(product_ASIN)
-        return self.calculate(self.review_anomalies, Review.objects.filter(asin=self.product_ASIN).count())
+        if self.review_anomalies:
+            return self.calculate(self.review_anomalies, Review.objects.filter(asin=self.product_ASIN).count())
+        else:
+            return False
 
     def detect_all(self):
         for product in Product.objects.values('asin'):
@@ -190,7 +185,15 @@ class ReviewAnomaly(Anomaly):
 
     # accepts total number of anomalies and total number of anomalies (anomaly score = number of anomalies / total number of reviews)
     def calculate(self, fake_reviews, total):
-        anomaly_rate = round(fake_reviews / total * 100, 2)
+        anomaly_rate = round(fake_reviews / total * 100, 3)
         Product.objects.filter(asin=self.product_ASIN).update(reviewAnomalyRate=anomaly_rate)
         return anomaly_rate
 
+    def train(self):
+        self.product_ASIN = product_ASIN
+        self.set_info(Review.objects.filter(asin=self.product_ASIN))
+
+        # Calculate an even number of bins based on range of unix_review_times x months
+        self.df = self.generate_frame()
+        if self.df.empty:
+            return None

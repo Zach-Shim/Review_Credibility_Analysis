@@ -144,9 +144,20 @@ class Similarity(DetectionAlgorithms):
         self.product_ASIN = product_ASIN
         duplicates = Review.objects.filter(asin=self.product_ASIN, duplicate=1).count()
         total_reviews = Review.objects.filter(asin=self.product_ASIN).count()
-        dup_score = round(duplicates / total_reviews * 100, 2)
-        Product.objects.filter(asin=self.product_ASIN).update(duplicateRatio=dup_score)
-        return dup_score
+        return self.calculate(duplicates, total_reviews)
+
+
+
+    def calculate(self, fake_reviews, total):
+        try:
+            # calculate similarity score = (total number of similar reviews) / (total number of reviews for asin)
+            similarity_score = round(fake_reviews / total * 100, 3)
+            Product.objects.filter(asin=self.product_ASIN).update(duplicateRatio=similarity_score)
+        except:
+            self.error_msg = "Error in calculating similarity score"
+            return False
+        return True
+
 
 
     def set_info(self):

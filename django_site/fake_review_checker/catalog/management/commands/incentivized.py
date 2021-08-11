@@ -47,8 +47,8 @@ class Command(BaseCommand):
             incentivized.detect(asin)
             fig, ax1 = plt.subplots(ncols=1, figsize=(11, 7))
             fig.subplots_adjust(wspace=0.5)
-            incentivized.plot(ax1)
-            plt.show()
+            if incentivized.plot(ax1):
+                plt.show()
         else:
             print("Please enter an asin, or enter the -a command")
 
@@ -135,7 +135,7 @@ class Incentivized(DetectionAlgorithms):
 
     def calculate(self, fake_reviews, total):
         # calculate incentivized score = (total number of incentivized reviews) / (total number of reviews for asin)
-        incentivized_score = round(fake_reviews / total * 100, 2)
+        incentivized_score = round(fake_reviews / total * 100, 3)
         Product.objects.filter(asin=self.product_ASIN).update(incentivizedRatio=incentivized_score)
         return incentivized_score
 

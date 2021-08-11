@@ -15,26 +15,21 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('asin', type=str, nargs='?', help='run similarity on a specific product asin')
-        parser.add_argument('-a', '--all', action='store_true', help='Run similarity on all products')
+        parser.add_argument('-t', '--train', action='store_true', help='Train models for similarity on static dataset')
+        parser.add_argument('-d', '--detect', action='store_true', help='Compare similarity of reviews in the database to newly scraped reviews')
 
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):        
         asin = kwargs['asin']
         lsi_model = LSI()
-        lsi_model.train()
-        lsi_model.detect(asin)
 
-        '''
-        if kwargs['all']:
-            # cross validate
-            log_regression.all()
-        elif kwargs['asin']:        
-            # run on specific product asin
-            cm = log_regression.binary()
-            log_regression.detect(asin)
+        if kwargs['train']:
+            lsi_model.train()
+        elif kwargs['detect']:
+            print(lsi_model.detect(asin))
         else:
             raise ValueError("Please enter the command -a or an asin")
-        '''
+        
         '''
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(cm)
@@ -96,6 +91,7 @@ class MyCorpus:
 
 # feature selection
 from collections import defaultdict
+import datetime
 import logging
 import numpy as np
 import os
@@ -119,16 +115,25 @@ __sim_index_path__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(
 '''
     Iterator class
 '''
-class LSI():
+class LSI(DetectionAlgorithms):
+    def __init__(self):
+        self.error_msg = ""
+        self.product_ASIN = ""
+
+        # invoking the constructor of the parent class  
+        graph_info = {"method": "count", "title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        super(LSI, self).__init__(graph_info)  
+
+
+
     def detect(self, product_ASIN):
         # query_documents = ["Use a binary tree data structure to solve this graph algorithm", "Human computer interaction"]
         # if number of documents (reviews) is less than some threshold (lets say, 5 reviews), return an error message
-        query_documents = Review.objects.filter(asin=product_ASIN)
+        query_documents = Review.objects.filter(asin=product_ASIN).values('reviewID', 'reviewText')    
         if query_documents.count() < 5:
             # if the length of the 'documents' list is less than 1, the algorithm will not work
-            return "Cannot analyze product due to lack of reviews"
-        else:
-            query_documents = query_documents.values('reviewText')    
+            self.error_msg = "Cannot analyze product due to lack of reviews"
+            return False
 
         # preprcoess text 
         texts = [naturalize(text['reviewText']) for text in query_documents]        # sanization, lemmatization, tokenization
@@ -143,24 +148,37 @@ class LSI():
         loaded_lsi_model = models.LsiModel.load(__lsi_model_path__)
         query_lsi = loaded_lsi_model[tfidf_corpus]
 
-        '''
-        # test output
-        documents = Review.objects.values('reviewText')
-        for doc, as_text in zip(query_lsi, query_documents):
-            print(doc, as_text, '\n')
+        print("Finding similar reviews with a threshold 80 percent similarity\n")
+        duplicate_indexes = set()
+        current_length = 0
+        duplicates_in_category = 0
+        for doc in query_lsi:
             # perform a similarity query against indexed data with new documents
             loaded_index = similarities.Similarity.load(__sim_index_path__)
             sims = loaded_index[doc]
 
-            x = 5
             for document_number, score in sorted(enumerate(sims), key=lambda x: x[1], reverse=True):
-                if x > 0:
-                    print(document_number, score, documents[document_number]['reviewText'][10:])
-                    x -= 1
+                if score > 0.9:
+                    current_length += 1
+                    print(document_number, score) #query_documents[document_number]['reviewText'][10:]
+                    duplicate_indexes.add(document_number)
                 else:
-                    print()
+                    print("Finished processing\n")
                     break
-        '''
+            
+            if current_length > 0:
+                duplicates_in_category += 1
+            current_length = 0
+
+        #print(duplicate_indexes)
+        print("\nPushing to database " + str(datetime.datetime.now()) + " start")
+        queries_to_update = []
+        for index in duplicate_indexes:
+            review = Review.objects.get(reviewID=int(index))
+            review.duplicate = 1
+            queries_to_update.append(review)
+        Review.objects.bulk_update(queries_to_update, ['duplicate'], batch_size=300)
+        print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
 
         # update dictionary
         loaded_dictionary.add_documents(texts)
@@ -170,9 +188,22 @@ class LSI():
         loaded_lsi_model.add_documents(corpus=query_lsi, chunksize=500)
         loaded_lsi_model.save(__lsi_model_path__)
         
+        self.product_ASIN = product_ASIN
+        self.calculate(duplicates_in_category, Review.objects.filter(asin=product_ASIN).count())
+        return len(queries_to_update)
+        
+
+
+    def calculate(self, fake_reviews, total):
+        # calculate similarity score = (total number of similar reviews) / (total number of reviews for asin)
+        similarity_score = round(fake_reviews / total * 100, 2)
+        print('similarity_score ', similarity_score)
+        Product.objects.filter(asin=self.product_ASIN).update(duplicateRatio=similarity_score)
+
 
 
     def train(self):
+        print("Start " + str(datetime.now()))
         # make bag-of-words dictionary (id: word) and save to disk
         processed_corpus = MyDictionary()
         dictionary = corpora.Dictionary(document for document in processed_corpus)
@@ -184,10 +215,12 @@ class LSI():
         corpora.MmCorpus.serialize(__bow_corpus_path__, bow_corpus)   
 
         # transform vector spaces and train tfidf model using bow vector data 
+        print("Processing bow vectors -> tfidf vectors... " + str(datetime.now()))
         tfidf = models.TfidfModel(bow_corpus)
         corpus_tfidf = tfidf[bow_corpus]
         
         # chain transformations - train lsi model using tfidf vector data (this allows online training)
+        print("Processing tfidf vectors -> lsi vectors... " + str(datetime.now()))
         lsi = models.LsiModel(corpus_tfidf, id2word=dictionary, num_topics=90)
         lsi.save(__lsi_model_path__)
 
@@ -197,3 +230,9 @@ class LSI():
         # enter all documents (enter a corpus) which we want to compare against subsequent similarity queries
         index = similarities.Similarity(__sim_index_path__, corpus=corpus_lsi, num_features=(len(dictionary.dfs)))  
         index.save(__sim_index_path__)
+        print("End " + str(datetime.now()))
+
+
+
+    def get_error(self):
+        return self.error_msg

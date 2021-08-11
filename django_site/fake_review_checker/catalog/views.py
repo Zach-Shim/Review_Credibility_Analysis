@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 import numpy as np
 import pandas as pd
+from datetime import datetime
 
 from io import BytesIO
 import base64
@@ -23,10 +24,8 @@ from .models import User, Product, Review
 from .forms import AsinForm, LinkForm
 from .management.commands.detection_algorithms import DetectionAlgorithms
 from .management.commands.incentivized import Incentivized
-from .management.commands.review_anomaly import ReviewAnomaly
-from .management.commands.rating_anomaly import RatingAnomaly
 from .management.commands.similarity import Similarity
-from .management.commands.svm import SVM
+from .management.commands.anomaly import ReviewAnomaly, RatingAnomaly
 from .management.commands.lsi import LSI
 
 
@@ -76,7 +75,7 @@ def index(request):
         if asin_form.is_valid():
             # redirect to a new URL (result view):
             print("redirecting...")
-            return HttpResponseRedirect(reverse('static_result', args=[asin_form.cleaned_data['asin_choice']]))
+            return HttpResponseRedirect(reverse('result', args=[asin_form.cleaned_data['asin_choice']]))
         
         # autocomplete feature
         if 'asin_id' in request.GET and request.GET['asin_id']:
@@ -110,17 +109,17 @@ def index(request):
     Parameters:
         (productASIN, objects you want to graph...)
 '''
-def plot(product_ASIN):
+def plot(product_ASIN, similarity, incentivized, reviewAnomalies, ratingAnomalies):
     # create a graph
     plt.switch_backend('AGG')
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(11, 7))
     fig.subplots_adjust(wspace=0.6)
     
     # plot all axes
-    Similarity.plot(ax1)
-    Incentivized.plot(ax2)
-    ReviewAnomaly.plot(ax3)
-    RatingAnomaly.plot(ax4)
+    similarity.plot(ax1)
+    incentivized.plot(ax2)
+    reviewAnomalies.plot(ax3)
+    ratingAnomalies.plot(ax4)
 
     # encode the figure as a png
     buf = BytesIO()
@@ -134,43 +133,36 @@ def plot(product_ASIN):
 
 
 
-def static_result(request, product_ASIN):
-    # Retrieve number of reviews for given product and date range for given product
-    reviewsForProduct = Review.objects.filter(asin=product_ASIN).count()
-    category = Product.objects.filter(asin=product_ASIN).values('category')[0]['category']
-
-    # Retrieve duplicate review ratio
-    incentivizedRatio = Product.objects.values('incentivizedRatio')
-    totalIncentivized = Review.objects.filter(asin=product_ASIN, incentivized=1).count()
-
+def result(request, product_ASIN):
     # Calculate Review and Rating Anomaly Rate and Interval/range of review posting dates 
-    reviewAnomalyRate = review_anomaly.detect(product_ASIN)
-    totalReviewAnomalies = review_anomaly.review_anomalies
+    reviewAnomalies = ReviewAnomaly()
+    reviewAnomalies.detect(product_ASIN)
+    print(reviewAnomalies.review_anomalies)
 
-    ratingAnomalyRate = rating_anomaly.detect(product_ASIN)
-    totalRatingAnomalies = rating_anomaly.rating_anomalies
+    ratingAnomalies = RatingAnomaly()
+    ratingAnomalies.detect(product_ASIN)
+    print(ratingAnomalies.rating_anomalies)
 
     # Plot graphs for each detection algorithm
-    figure = plot(product_ASIN)
+    figure = plot(product_ASIN, Similarity(), Incentivized(), reviewAnomalies, ratingAnomalies)
 
     context = {
         'product_ASIN': product_ASIN,
-        'category': category,
+        'category': Product.objects.filter(asin=product_ASIN).values('category')[0]['category'],
+        'reviewsForProduct': Review.objects.filter(asin=product_ASIN).count(),
         
-        'duplicateRatio': duplicateRatio,
-        'totalDuplicate': totalDuplicate,
+        'duplicateRatio': Product.objects.filter(asin=product_ASIN).values('duplicateRatio')[0]['duplicateRatio'],
+        'totalDuplicate': Review.objects.filter(asin=product_ASIN, duplicate=1).count(),
 
-        'incentivizedRatio': incentivizedRatio,
-        'totalIncentivized': totalIncentivized,
+        'incentivizedRatio': Product.objects.filter(asin=product_ASIN).values('incentivizedRatio')[0]['incentivizedRatio'],
+        'totalIncentivized': Review.objects.filter(asin=product_ASIN, incentivized=1).count(),
 
-        'reviewAnomalyRate': reviewAnomalyRate,
-        'totalReviewAnomalies': totalReviewAnomalies,
+        'reviewAnomalyRate': Product.objects.filter(asin=product_ASIN).values('reviewAnomalyRate')[0]['reviewAnomalyRate'],
+        'totalReviewAnomalies': reviewAnomalies.review_anomalies,
 
-        'ratingAnomalyRate': ratingAnomalyRate,
-        'totalRatingAnomalies': totalRatingAnomalies,
+        'ratingAnomalyRate': Product.objects.filter(asin=product_ASIN).values('ratingAnomalyRate')[0]['ratingAnomalyRate'],
+        'totalRatingAnomalies': ratingAnomalies.rating_anomalies,
         
-        'reviewsForProduct': reviewsForProduct,
-
         'figure': figure,
     }
 
@@ -181,8 +173,8 @@ def static_result(request, product_ASIN):
 
 def search_link(request):
     # Create a dropdown and text input form instances and populate them with data from the request (binding)
-    link_form = LinkForm(request.GET)
-
+    link_form = LinkForm(request.POST)
+    print("hello")
     # when a user types in the search box, autocomplete the first 10 product asin options from their input
     if request.method == 'POST':
         if link_form.is_valid():
@@ -201,61 +193,44 @@ def search_link(request):
 
 
 def link_result(request, product_ASIN):
-
-    # test connection too see if page is valid
-    scraper = Scrape()
-    if scraper.scrape(asin) == False:
-        pass
-
     # Calculate Duplicate Ratio and number of duplicate reviews
-    regression_model = LogisticRegression()
-    regression_model.detect(product_ASIN)
+    lsi_model = LSI()
+    duplicates = lsi_model.detect(product_ASIN)
+    
+    # Calculate Review and Rating Anomaly Rate and Interval/range of review posting dates 
+    reviewAnomalies = ReviewAnomaly()
+    reviewAnomalies.detect(product_ASIN)
+    print(reviewAnomalies.review_anomalies)
 
-    # Calculate Incentivized Ratio and number of incentivized reviews
-    sentiment_model
-
-    # Calculate Review Anomaly Rate and Interval/range of review posting dates 
-    review_anomaly = ReviewAnomaly()
-    reviewAnomalyRate = review_anomaly.detect(product_ASIN)
-    totalReviewAnomalies = review_anomaly.review_anomalies
-
-    # Calculate Rating Anomaly Rate and Interval/range of review posting dates 
-    rating_anomaly = RatingAnomaly()
-    ratingAnomalyRate = rating_anomaly.detect(product_ASIN)
-    totalRatingAnomalies = rating_anomaly.rating_anomalies
-
-    # Calculate Number of Reviews and Date Range for Given Product
-    reviewsForProduct = Review.objects.filter(asin=product_ASIN).count()
-    category = Product.objects.filter(asin=product_ASIN).values('category')[0]['category']
+    ratingAnomalies = RatingAnomaly()
+    ratingAnomalies.detect(product_ASIN)
+    print(ratingAnomalies.rating_anomalies)
 
     # Plot graphs for each detection algorithm
-    figure = plot(product_ASIN, duplicate, incentivized, review_anomaly, rating_anomaly)
+    figure = plot(product_ASIN, Similarity(), Incentivized(), reviewAnomalies, ratingAnomalies)
 
     context = {
         'product_ASIN': product_ASIN,
-        'category': category,
+        'category': Product.objects.filter(asin=product_ASIN).values('category')[0]['category'],
+        'reviewsForProduct': Review.objects.filter(asin=product_ASIN).count(),
         
-        'duplicateRatio': duplicateRatio,
-        'totalDuplicate': totalDuplicate,
+        'duplicateRatio': Product.objects.filter(asin=product_ASIN).values('duplicateRatio')[0]['duplicateRatio'],
+        'totalDuplicate': duplicates,
 
-        'incentivizedRatio': incentivizedRatio,
-        'totalIncentivized': totalIncentivized,
+        'incentivizedRatio': Product.objects.filter(asin=product_ASIN).values('incentivizedRatio')[0]['incentivizedRatio'],
+        'totalIncentivized': Review.objects.filter(asin=product_ASIN, incentivized=1).count(),
 
-        'reviewAnomalyRate': reviewAnomalyRate,
-        'totalReviewAnomalies': totalReviewAnomalies,
+        'reviewAnomalyRate': Product.objects.filter(asin=product_ASIN).values('reviewAnomalyRate')[0]['reviewAnomalyRate'],
+        'totalReviewAnomalies': reviewAnomalies.review_anomalies,
 
-        'ratingAnomalyRate': ratingAnomalyRate,
-        'totalRatingAnomalies': totalRatingAnomalies,
+        'ratingAnomalyRate': Product.objects.filter(asin=product_ASIN).values('ratingAnomalyRate')[0]['ratingAnomalyRate'],
+        'totalRatingAnomalies': ratingAnomalies.rating_anomalies,
         
-        'reviewsForProduct': reviewsForProduct,
-
         'figure': figure,
     }
-
-    contenxt = {}
+    
     # Render the HTML template index.html with the data in the context variable
     return render(request, 'result.html', context=context)
-
 
 
 

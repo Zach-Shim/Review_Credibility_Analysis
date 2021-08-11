@@ -161,13 +161,14 @@ class FileToDatabase():
 
     def _add_review_id(self, df):
         # find current highest id in table
-        existing = pd.read_sql(self.table_name, self.engine_connection)
+        existing = pd.read_sql(self.table_name, self.engine_connection, columns=['reviewID'])
         low_id = max_id = 0
         if existing.empty:
             low_id = 0
             max_id = len(df)
         else:
             low_id = existing["reviewID"].max() + 1
+            print(low_id)
             max_id = len(df) + low_id
 
         return np.arange(low_id, max_id)
