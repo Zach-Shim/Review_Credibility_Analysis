@@ -9,16 +9,17 @@ import random
 import time
 import binascii
 import datetime
-import csv
-import sys
-import os
-import operator
 import sqlite3
+
+# Python Dependency Library Imports
+import nltk
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 
 # Django Imports
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.utils.crypto import get_random_string
 
 # Relative Imports
 from ...models import User, Product, Review
@@ -26,27 +27,37 @@ from ...models import User, Product, Review
 
 
 class Command(BaseCommand):
-    help = 'Get product similarity scores'
+    help = 'Get minhash for all review texts'
+
+    def add_arguments(self, parser):
+        parser.add_argument('asin', type=str, nargs='?', help='run similarity on a specific product asin')
+        parser.add_argument('-a', '--all', action='store_true', help='Run similarity on all products')
 
     def handle(self, *args, **kwargs):
-        similarity = Similarity()
-        similarity.minHash()
+        asin = kwargs['asin']
+        minhash = MinHash()
+
+        if kwargs['all']:
+            # run on entire database (takes a really long time if database is large because it has to cross check data)
+            minhash.min_hash(Review.objects.all())
+        elif kwargs['asin']:        
+            minhash.min_hash_asin(Review.objects.filter(asin=product_ASIN))
+        else:
+            raise ValueError("Please enter the command -a or an asin")
 
 
-
-class Similarity():
+class MinHash():
 
     def __init__(self):
-        self.max_shingle_id = 2 ** 32 - 1                     # Record the maximum shingle ID that we assigned.
         self.next_prime = 4294967311                         # Next largest prime number above 'max_shingle_id'.
+        self.num_of_hashes = 105
 
         # For each of the 'num_of_hashes' hash functions, generate a different coefficient 'a' and 'b'.
-        self.num_of_hashes = 105
         self.coeff_a = self.generate_random(self.num_of_hashes)
         self.coeff_b = self.generate_random(self.num_of_hashes)
 
         # List of documents represented as signature vectors
-        self.signatures = []
+        self.review_count = 0
 
         
 
@@ -54,11 +65,13 @@ class Similarity():
         Create a list of 'k' random values
     '''
     def generate_random(self, count):
-        randList = []                                                    
+        max_shingle_id = 2 ** 32 - 1                     # Record the maximum shingle ID that we assigned.
+
+        randList = []
         while count > 0:
-            random_index = random.randint(0, self.max_shingle_id)                     # Get a random shingle ID from 0 to (2^32 - 1)
+            random_index = random.randint(0, max_shingle_id)                     # Get a random shingle ID from 0 to (2^32 - 1)
             while random_index in randList:                                    # Ensure that each random number is unique.
-                random_index = random.randint(0, self.max_shingle_id)                 # Add the random number to the list.
+                random_index = random.randint(0, max_shingle_id)                 # Add the random number to the list.
             randList.append(random_index)
             count = count - 1
 
@@ -80,21 +93,35 @@ class Similarity():
 
 
     '''
+        process natural language
+    '''
+    def naturalize(self, review_text):
+        # get rid of punctutaion and isolate individual words
+        tokenizer = nltk.RegexpTokenizer(r"\w+")
+        review_words = tokenizer.tokenize(review_text)
+
+        # lemmatize the words to obtain core meaning (lemma -> "blend" vs. lexeme -> "blending") (lemma = word that represents a group of words)
+        lemmatizer = WordNetLemmatizer()
+        lemmatized_words = [lemmatizer.lemmatize(word.casefold()) for word in review_words]
+
+        return lemmatized_words
+
+
+
+    '''
         create a minHash for all bishingles
     '''
-    def minHash(self):
-        review_count = 0
-        print("\n" + str(datetime.datetime.now()) + " " + str(review_count))
+    def min_hash(self, reviews):
+        self.review_count = 0
         
         # open original json file data
         queries_to_update = []
-        for review in Review.objects.all():
-            review_text = review.reviewText.split()
+        for review in reviews:
+            review_text = self.naturalize(review.reviewText)
             bigram_crcs = self.find_bigram_crcs(review_text) 
 
-            review_count += 1
-            if review_count % 1000 == 0:
-                print("\n" + str(datetime.datetime.now()) + " " + str(review_count))
+            if self.review_count % 1000 == 0:
+                print("\n" + str(datetime.datetime.now()) + " " + str(self.review_count))
 
             signature = []
             for i in range(0, self.num_of_hashes):
@@ -105,13 +132,12 @@ class Similarity():
                     if hash_code < minhash_code:                                                      # track the lowest hash ID seen.
                         minhash_code = hash_code
                 signature.append(minhash_code)
-            self.signatures.append(signature)
 
             # Join the hash code signautures into one string
             str_sig = ','.join(str(num) for num in signature)
-
             review.minHash = str_sig
             queries_to_update.append(review)
+            self.review_count += 1
 
         Review.objects.bulk_update(queries_to_update, ['minHash'])
-        print("\n" + str(datetime.datetime.now()) + " " + str(review_count))
+        print("\n" + str(datetime.datetime.now()) + " " + str(self.review_count))

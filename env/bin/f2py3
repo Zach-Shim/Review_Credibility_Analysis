@@ -1,4 +1,4 @@
-#!/Users/zshim/Desktop/Projects/Django_Intro/env/bin/python3.9
+#!/Users/zshim/Desktop/Projects/Fake_Review_Checker/env/bin/python3.9
 # -*- coding: utf-8 -*-
 import re
 import sys

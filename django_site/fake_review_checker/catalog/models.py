@@ -37,6 +37,8 @@ class Product(models.Model):
     # attributes
     asin = models.TextField(primary_key = True)
     category = models.TextField()
+    title = models.TextField(default="")
+    url = models.TextField(default="")
     duplicateRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     incentivizedRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     ratingAnomalyRate = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
@@ -94,8 +96,8 @@ class Review(models.Model):
     # Methods
     def get_absolute_url(self):
         """Returns the url to access a particular instance of MyModelName."""
-        return reverse('model-detail-view', args=[str(self.id)])
+        return reverse('model-detail-view', args=[str(self.reviewID)])
 
     def __str__(self):
         """String for representing the MyModelName object (in Admin site etc.)."""
-        return "Review " + str(self.id)
+        return "Review " + str(self.reviewID)

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <!-- NAVIGATION -->
+    <nav class="nav-bar">
+        <div class="logo">
+            {% load static%}
+            <a href="{% url 'index'%}" class="logo"><img src="{% static 'images/logo2.png' %}" alt="Logo for Fake Review Checker"></a>
+        </div>
+        <div class="nav-buttons">            
+            <a href="{% url 'index'%}">Search Our Repository</a>
+            <a id="current-page" href="">Search By Link</a>
+            <a href="{% url 'about'%}">About</a>
+        </div>
+    </nav>
+
+    <!-- Page's main content-->
+    <article class="results">
+
+        <!-- PRODUCT INFO -->
+        <section class="product-info">
+            <h1> Credibility Analysis Report </h1>
+
+            <p> Report generated for product ASIN: <strong id=asin_id>{{ product_ASIN }}</strong> </p>
+
+            <form action="https://www.amazon.com/dp/{{product_ASIN}}">
+                <input type="submit" value="Open in Amazon" />
+            </form>
+        </section>
+
+
+        <!-- The loading image -->
+        <div id="loading">
+            <p>Loading</p>
+        </div>
+
+        <!-- Container for result -->
+        <div id="success">
+            <p>Success</p>
+        </div>
+    </article>
+{% endblock %}

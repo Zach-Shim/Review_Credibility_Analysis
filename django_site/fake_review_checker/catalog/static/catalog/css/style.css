@@ -92,7 +92,7 @@ section {
 	margin-bottom: 10px;
 }
 
-.search p + p {
+.search .instruction {
 	margin-bottom: 50px;
 }
 
@@ -131,6 +131,17 @@ section {
 	border: 1px solid rgb(53, 6, 6);
 }
 
+.link_form {
+	grid-column: 1 / 5;
+	grid-row: 1;
+}
+
+.link_form input {
+	width: 515px;
+	height: 30px;
+	border: 1px solid rgb(53, 6, 6);
+}
+
 .error_form {
 	grid-column: 4 / 10;
 	grid-row: 2;
@@ -142,6 +153,11 @@ section {
 
 .submit_form {
 	grid-column: 10 / 11;
+	grid-row: 1;
+}
+
+#search-link-button {
+	grid-column: 11 / 13;
 	grid-row: 1;
 }
 
@@ -252,6 +268,11 @@ footer .scrollToTop {
 .product-info h1 {
 	font-size: 2em;	
 	margin-bottom: 0;
+}
+
+/* product table */
+.product-table-stats {
+	margin: 0 100px;
 }
 
 /* product table */
