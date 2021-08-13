@@ -41,6 +41,8 @@ class Product(models.Model):
     url = models.TextField(default="")
     duplicateRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     incentivizedRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
+    positiveRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
+    negativedRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     ratingAnomalyRate = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     reviewAnomalyRate = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
 
@@ -84,6 +86,8 @@ class Review(models.Model):
     minHash = models.TextField(default="")
     duplicate = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
     incentivized = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
+    positive = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
+    negative = models.IntegerField(choices = ((0, 0), (1, 1)), default=0)
 
     # Metadata
     class Meta:
