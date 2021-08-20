@@ -42,7 +42,7 @@ class Product(models.Model):
     duplicateRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     incentivizedRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     positiveRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
-    negativedRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
+    negativeRatio = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     ratingAnomalyRate = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
     reviewAnomalyRate = models.DecimalField(max_digits=5, decimal_places=2, default = 0)
 

@@ -2,6 +2,7 @@ from os.path import dirname, abspath
 import os
 import pandas as pd
 import random
+import datetime
 import spacy
 from spacy.util import minibatch, compounding
 
@@ -17,20 +18,30 @@ from .detection_algorithms import DetectionAlgorithms
 
 # Used by django admin on the command line: python manage.py logistic_regression
 class Command(BaseCommand):
+    def add_arguments(self, parser):
+        parser.add_argument('asin', type=str, nargs='?', help='run similarity on a specific product asin')
+        parser.add_argument('-t', '--train', action='store_true', help='Train models for similarity on static dataset')
+        parser.add_argument('-d', '--detect', action='store_true', help='Compare similarity of reviews in the database to newly scraped reviews')
 
     # args holds number of args, kwargs is dict of args
     def handle(self, *args, **kwargs):        
+        asin = kwargs['asin']
         sentiment_model = Sentiment()
 
-        train, test = sentiment_model.load_training_data(limit=5000)
-        print("Training model")
-        sentiment_model.train_model(train, test)
-        df = pd.DataFrame(eval_list)
-        pd.DataFrame.plot(df)
-        print("Testing model")
-        reviews = Review.objects.all().values("reviewText")[10:20]
-        for review in reviews:
-            sentiment_model.test_model(review['reviewText'])
+        if kwargs['train']:
+            train, test = sentiment_model.load_training_data(limit=5000)
+            print("Training model")
+            sentiment_model.train_model(train, test)
+            df = pd.DataFrame(eval_list)
+            pd.DataFrame.plot(df)
+            print("Testing model")
+            reviews = Review.objects.all().values("reviewText")[10:20]
+            for review in reviews:
+                sentiment_model.test_model(review['reviewText'])
+        elif kwargs['detect']:
+            sentiment_model.detect(asin)
+        else:
+            raise ValueError("Please enter the command -a or an asin")
 
 
 
@@ -47,7 +58,14 @@ eval_list = []
 
 __dataset__ = dirname(dirname(dirname(abspath(__file__)))) + "/datasets/aclImdb/train/"
 __model__ = dirname(dirname(dirname(abspath(__file__)))) + "/datasets/dynamic_data/model_artifacts/"
-class Sentiment():
+class Sentiment(DetectionAlgorithms):
+    def __init__(self):
+        # invoking the constructor of the parent class  
+        graph_info = {"method": "count", "title": "Positice Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
+        super(Sentiment, self).__init__(graph_info)  
+
+
+
     def train_model(self, training_data: list, test_data: list, iterations: int = 20) -> None:
         # Build pipeline
         nlp = spacy.load("en_core_web_sm")
@@ -186,6 +204,9 @@ class Sentiment():
     def detect(self, product_ASIN):
         #  Load saved trained model
         loaded_model = spacy.load(__model__)
+
+        positive = []
+        negative = []
         for review in Review.objects.filter(asin=product_ASIN):
             # Generate prediction
             parsed_text = loaded_model(review.reviewText)
@@ -193,31 +214,51 @@ class Sentiment():
             # Determine prediction to return
             if parsed_text.cats["pos"] > parsed_text.cats["neg"]:
                 review.positive = 1
+                positive.append(review)
                 prediction = "Positive"
                 score = parsed_text.cats["pos"]
             else:
                 review.negative = 1
+                negative.append(review)
                 prediction = "Negative"
                 score = parsed_text.cats["neg"]
             print(
-                f"Review text: {input_data}\nPredicted sentiment: {prediction}"
+                f"Review text: {review.reviewText}\nPredicted sentiment: {prediction}"
                 f"\tScore: {score}"
             )
 
-        self.calculate_positive(Review.objects.filter(asin=product_ASIN, positive=1).count(), Review.objects.filter(asin=product_ASIN).count())
 
-        self.calculate_negative(Review.objects.filter(asin=product_ASIN, negative=1).count(), Review.objects.filter(asin=product_ASIN).count())
+        print("\nPushing to database " + str(datetime.datetime.now()) + " start")
+        Review.objects.bulk_update(positive, ['positive'], batch_size=300)
+        Review.objects.bulk_update(negative, ['negative'], batch_size=300)
+        print("\nPushing to database " + str(datetime.datetime.now()) + " finish")
 
- 
-    def calculate_positive(self, fake_reviews, total):
+        print("Postitive score: ", self.calculate_positive(product_ASIN, Review.objects.filter(asin=product_ASIN, positive=1).count(), Review.objects.filter(asin=product_ASIN).count()))
+        print("Negative score: ", self.calculate_negative(product_ASIN, Review.objects.filter(asin=product_ASIN, negative=1).count(), Review.objects.filter(asin=product_ASIN).count()))
+
+    
+
+    def get_positive(self, product_ASIN):
+        Review.objects.filter(asin=self.product_ASIN, positive=1)
+
+
+
+    def get_negative(self, product_ASIN):
+        Review.objects.filter(asin=self.product_ASIN, negative=1)
+
+
+
+    def calculate_positive(self, product_ASIN, fake_reviews, total):
         # calculate similarity score = (total number of similar reviews) / (total number of reviews for asin)
         sentiment_score = round(fake_reviews / total * 100, 2)
-        print('sentiment score ', similarity_score)
-        Product.objects.filter(asin=self.product_ASIN).update(positiveRatio=sentiment_score)
+        print('sentiment score ', sentiment_score)
+        Product.objects.filter(asin=product_ASIN).update(positiveRatio=sentiment_score)
+        return sentiment_score
 
 
-    def calculate_positive(self, fake_reviews, total):
+    def calculate_negative(self, product_ASIN, fake_reviews, total):
         # calculate similarity score = (total number of similar reviews) / (total number of reviews for asin)
         sentiment_score = round(fake_reviews / total * 100, 2)
-        print('sentiment score ', similarity_score)
-        Product.objects.filter(asin=self.product_ASIN).update(negativeRatio=sentiment_score)
+        print('sentiment score ', sentiment_score)
+        Product.objects.filter(asin=product_ASIN).update(negativeRatio=sentiment_score)
+        return sentiment_score

@@ -122,7 +122,7 @@ class DocSim(DetectionAlgorithms):
 
         # invoking the constructor of the parent class  
         graph_info = {"method": "count", "title": "Duplicate Review Counts", "y_axis": "Number of Reviews", "x_axis": "Time"}
-        super(LSI, self).__init__(graph_info)  
+        super(DocSim, self).__init__(graph_info)  
 
 
 
@@ -206,8 +206,12 @@ class DocSim(DetectionAlgorithms):
     def train(self):
         print("Start " + str(datetime.datetime.now()))
         # make bag-of-words dictionary (id: word) and save to disk
-        processed_corpus = MyDictionary()
+        #processed_corpus = MyDictionary()
+        document = "I have purchased this product several times. It is really high quality and will still be good after many uses."
+        processed_corpus = [naturalize(document)]
         dictionary = corpora.Dictionary(document for document in processed_corpus)
+        print(dictionary)
+        breakpoint()
         dictionary.save(__keywords_path__)                                      
 
         # create document vectors based on dictionary (based on bag-of-words represetnation; each document is a list of (wordID: # of word occurences))

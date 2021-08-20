@@ -209,8 +209,8 @@ def link_result(request, product_ASIN):
   
     # Calculate Duplicate Ratio and number of duplicate reviews
     similarity = DocSim()
-    duplicates = similarity.detect(product_ASIN)
     
+    # Calculate Positivity/Negativity Ratio and number of duplicate reviews
     sentiment = Sentiment()
 
     # Calculate Review and Rating Anomaly Rate and Interval/range of review posting dates 
@@ -229,10 +229,13 @@ def link_result(request, product_ASIN):
         'reviewsForProduct': Review.objects.filter(asin=product_ASIN).count(),
         
         'duplicateRatio': Product.objects.filter(asin=product_ASIN).values('duplicateRatio')[0]['duplicateRatio'],
-        'totalDuplicate': duplicates,
+        'totalDuplicate': similarity.detect(product_ASIN),
 
-        'incentivizedRatio': Product.objects.filter(asin=product_ASIN).values('incentivizedRatio')[0]['incentivizedRatio'],
-        'totalIncentivized': Review.objects.filter(asin=product_ASIN, incentivized=1).count(),
+        'positiveRatio': Product.objects.filter(asin=product_ASIN).values('positiveRatio')[0]['positiveRatio'],
+        'totalPositive': Review.objects.filter(asin=product_ASIN, positive=1).count(),
+
+        'negativeRatio': Product.objects.filter(asin=product_ASIN).values('negativeRatio')[0]['negativeRatio'],
+        'totalNegative': Review.objects.filter(asin=product_ASIN, negative=1).count(),
 
         'reviewAnomalyRate': Product.objects.filter(asin=product_ASIN).values('reviewAnomalyRate')[0]['reviewAnomalyRate'],
         'totalReviewAnomalies': reviewAnomalies.review_anomalies,
