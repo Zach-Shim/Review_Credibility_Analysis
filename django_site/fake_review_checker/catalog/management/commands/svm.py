@@ -73,3 +73,7 @@ class SVM():
 
         print(x_train.shape)
         
+
+
+    def load_training_data(self):
+        for review in Review.objects.filter()

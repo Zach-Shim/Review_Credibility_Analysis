@@ -22,11 +22,16 @@ from django.views import generic
 # Local Imports
 from .models import User, Product, Review
 from .forms import AsinForm, LinkForm
+
+# static data processing 
 from .management.commands.detection_algorithms import DetectionAlgorithms
 from .management.commands.incentivized import Incentivized
 from .management.commands.similarity import Similarity
+
+# dynamic data processing 
 from .management.commands.anomaly import ReviewAnomaly, RatingAnomaly
-from .management.commands.lsi import LSI
+from .management.commands.docsim import DocSim
+from .management.commands.sentiment import Sentiment
 from .management.commands.scrape import Scrape
 
 '''
@@ -203,20 +208,20 @@ def link_result(request, product_ASIN):
         raise ValidationError(_(scraper.get_error()))
   
     # Calculate Duplicate Ratio and number of duplicate reviews
-    lsi_model = LSI()
-    duplicates = lsi_model.detect(product_ASIN)
+    similarity = DocSim()
     
+    # Calculate Positivity/Negativity Ratio and number of duplicate reviews
+    sentiment = Sentiment()
+
     # Calculate Review and Rating Anomaly Rate and Interval/range of review posting dates 
     reviewAnomalies = ReviewAnomaly()
     reviewAnomalies.detect(product_ASIN)
-    print(reviewAnomalies.review_anomalies)
 
     ratingAnomalies = RatingAnomaly()
     ratingAnomalies.detect(product_ASIN)
-    print(ratingAnomalies.rating_anomalies)
 
     # Plot graphs for each detection algorithm
-    figure = plot(product_ASIN, Similarity(), Incentivized(), reviewAnomalies, ratingAnomalies)
+    figure = plot(product_ASIN, similarity, sentiment, reviewAnomalies, ratingAnomalies)
 
     context = {
         'product_ASIN': product_ASIN,
@@ -224,10 +229,13 @@ def link_result(request, product_ASIN):
         'reviewsForProduct': Review.objects.filter(asin=product_ASIN).count(),
         
         'duplicateRatio': Product.objects.filter(asin=product_ASIN).values('duplicateRatio')[0]['duplicateRatio'],
-        'totalDuplicate': duplicates,
+        'totalDuplicate': similarity.detect(product_ASIN),
 
-        'incentivizedRatio': Product.objects.filter(asin=product_ASIN).values('incentivizedRatio')[0]['incentivizedRatio'],
-        'totalIncentivized': Review.objects.filter(asin=product_ASIN, incentivized=1).count(),
+        'positiveRatio': Product.objects.filter(asin=product_ASIN).values('positiveRatio')[0]['positiveRatio'],
+        'totalPositive': Review.objects.filter(asin=product_ASIN, positive=1).count(),
+
+        'negativeRatio': Product.objects.filter(asin=product_ASIN).values('negativeRatio')[0]['negativeRatio'],
+        'totalNegative': Review.objects.filter(asin=product_ASIN, negative=1).count(),
 
         'reviewAnomalyRate': Product.objects.filter(asin=product_ASIN).values('reviewAnomalyRate')[0]['reviewAnomalyRate'],
         'totalReviewAnomalies': reviewAnomalies.review_anomalies,

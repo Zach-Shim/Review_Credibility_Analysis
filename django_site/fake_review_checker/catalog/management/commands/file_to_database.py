@@ -1,6 +1,7 @@
 # Python Standard Library Imports
 import numpy as np
 import os
+from os.path import dirname, abspath
 import pandas as pd
 from pandas import read_json
 import sqlite3
@@ -15,14 +16,13 @@ from django.core.management.base import BaseCommand
 from ...models import User, Product, Review
 
 # Global Directory Variables
-__current_dir__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-__json_location__ = __current_dir__[:-20] + "/datasets/static_data/"
-__db_location__ = __current_dir__[:-28] + "/db.sqlite3"
+__json_location__ = dirname(dirname(dirname(abspath(__file__)))) + "/datasets/static_data/"
+__db_location__ = dirname(dirname(dirname(dirname(abspath(__file__))))) + "/db.sqlite3"
 
 # Global Model Schema Variables
 user_columns = ["reviewerID", "reviewerName"]
-product_columns = ["asin", "title", "category", "url", "duplicateRatio", "incentivizedRatio", "ratingAnomalyRate", "reviewAnomalyRate"]
-review_columns = ["reviewID", "reviewText", "overall", "unixReviewTime", "minHash", "asin", "reviewerID", "duplicate", "incentivized"]
+product_columns = ["asin", "title", "category", "url", "duplicateRatio", "incentivizedRatio", "positiveRatio", "negativedRatio", "ratingAnomalyRate", "reviewAnomalyRate"]
+review_columns = ["reviewID", "reviewText", "overall", "unixReviewTime", "minHash", "asin", "reviewerID", "duplicate", "incentivized", "positive", "negative"]
 
 
 
@@ -135,6 +135,8 @@ class FileToDatabase():
         df["title"] = ""
         df["duplicateRatio"] = 0.0
         df["incentivizedRatio"] = 0.0
+        df["positiveRatio"] = 0.0
+        df["negativedRatio"] = 0.0
         df["ratingAnomalyRate"] = 0.0
         df["reviewAnomalyRate"] = 0.0
 
@@ -152,6 +154,8 @@ class FileToDatabase():
         df["minHash"] = ""
         df["duplicate"] = 0
         df["incentivized"] = 0
+        df["positive"] = 0
+        df["negative"] = 0
         df['reviewID'] = self._add_review_id(df)                       # create unique id's for each review
         
         df = df.loc[:, review_columns]

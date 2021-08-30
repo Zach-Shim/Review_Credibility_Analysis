@@ -45,7 +45,7 @@ class LinkForm(forms.Form):
         if "amazon.com" not in link:  
             raise ValidationError(_("Please enter an Amazon link"))
 
-        if "www" not in link or "dp" not in link or link == None or link == '':
+        if "www" not in link or link == None or link == '':
             raise ValidationError(_("Please enter a valid Amazon 'product' link"))
 
         if "https://www.amazon.com/" not in link and "http://www.amazon.com/" not in link:
@@ -61,7 +61,8 @@ class LinkForm(forms.Form):
             scraper = Scrape()
             if scraper.scrape(asin) == False:
                 raise ValidationError(_(scraper.get_error()))
-        except:
+        except Exception as e:
+            print(e)
             raise ValidationError(_("Invalid link"))
         
         return link

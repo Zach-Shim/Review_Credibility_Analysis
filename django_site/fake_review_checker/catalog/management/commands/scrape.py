@@ -92,6 +92,7 @@ class Scrape():
         # request params
         self.proxy = ""
         self.headers['user-agent'] = ua.random
+        self.max_tries = 3
 
 
 
@@ -128,7 +129,7 @@ class Scrape():
         
         print("End " + str(datetime.now()))
         
-        if not self.unix_review_times or not self.review_ratings or not self.review_texts or not self.reviewer_names:
+        if self.error_msg != "" or not self.unix_review_times or not self.review_ratings or not self.review_texts or not self.reviewer_names:
             self.error_msg = "Unable to retrieve review data"
             print(self.error_msg)
             return False
@@ -138,6 +139,7 @@ class Scrape():
 
 
     def scrape_product_data(self):
+        time.sleep(1)
         # request page
         if self.request_wrapper(self.url) is not True:
             return False
@@ -178,8 +180,8 @@ class Scrape():
             return False
 
         # either scrape the first ten pages or the amount of pages according to the num of reviews
-        self.max_pages = min(int(math.floor(num_of_reviews / Scrape.REVIEWS_PER_PAGE)), 10)
-        
+        self.max_pages = min(int(math.floor(num_of_reviews / Scrape.REVIEWS_PER_PAGE)), 9)
+        self.max_tries += 20
         return True
 
 
@@ -321,22 +323,24 @@ class Scrape():
 
             # checking whether capcha is bypassed or not (status code is 200 in case it displays the capcha image)
             if "api-services-support@amazon.com" in response.text or "To discuss automated access to Amazon data please contact api-services-support@amazon.com." in response.text:
-                if self.max_tries == 0:
+                if self.max_tries <= 0:
                     self.error_msg = "Unable to bypass CAPTCHA. Please refresh page and try again."
                     return False
                 else:
+                    # random IP and user agent
                     print("Attempting to bypass CAPTCHA")
-                    time.sleep(randint(1,10))
-                    self.ua = ua.random
+                    #time.sleep(randint(1,5))
+                    self.headers['user-agent'] = ua.random
                     self.proxy = self.proxy_generator() 
                     self.max_tries -= 1
+                    print("My new user agent: ", self.headers['user-agent'])
+                    print("Tries left: ", self.max_tries)
                     continue
             else:
                 break
                     
         # request was actually succuessful (wow)
         print("Successfully connected to ", url)
-        self.max_try = 5
         self.tree = lxml.html.fromstring(response.content)
         time.sleep(1)
         return True
